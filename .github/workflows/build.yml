@@ -26,5 +26,10 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      # Hibiscus Lib comes from GitHub Packages, which needs a token even for public packages: the organisation's
+      # HIBISCUS_PACKAGES_TOKEN (read:packages) if it's set, else this workflow's own token.
       - name: Build with Gradle
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.HIBISCUS_PACKAGES_TOKEN || github.token }}
         run: ./gradlew build

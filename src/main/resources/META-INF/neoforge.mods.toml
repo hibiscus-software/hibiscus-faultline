@@ -1,13 +1,16 @@
 license="${mod_license}"
+issueTrackerURL="https://github.com/hibiscus-software/hibiscus-faultline/issues"
 
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
-authors="Zagdrath"
-iconFile="faultline_icon.png"
+authors="Hibiscus Software"
+displayURL="https://github.com/hibiscus-software/hibiscus-faultline"
+# Square icon beside the name in the mod list; wide banner at the top of the info panel. Both are pixel art, so no blur.
+iconFile="hibiscusfaultline_icon.png"
 iconBlur=false
-bannerFile="faultline_banner.png"
+bannerFile="hibiscusfaultline_banner.png"
 logoBlur=false
 description='''
 Mine a whole vein at once. Hold the Faultline key and break a block to take out every matching block connected to it: ores, logs, stone, anything. It works with any tool or your bare hand, and the config lets you set the limits.
@@ -16,8 +19,7 @@ Mine a whole vein at once. Hold the Faultline key and break a block to take out 
 [[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"
-    # Built against neo_version, but also works on earlier 26.3 betas back to 23-beta.
-    versionRange="[26.3.0.23-beta,)"
+    versionRange="${neo_version_range}"
     ordering="NONE"
     side="BOTH"
 
@@ -26,4 +28,12 @@ Mine a whole vein at once. Hold the Faultline key and break a block to take out 
     type="required"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
+    side="BOTH"
+
+# The HUD draws with Hibiscus Lib's theme.
+[[dependencies.${mod_id}]]
+    modId="hibiscuslib"
+    type="required"
+    versionRange="[1.4.1,)"
+    ordering="AFTER"
     side="BOTH"

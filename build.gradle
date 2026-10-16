@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2026 Zagdrath
- * SPDX-License-Identifier: MIT
- */
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -12,12 +8,28 @@ tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }
 
-version = mod_version
+// Full version is <mod_version>+<minecraft_version>, e.g. 1.0.0+26.3 (SemVer build metadata).
+version = "${mod_version}+${minecraft_version}"
 group = mod_group_id
 
 sourceSets.main.resources {
     // Exclude development only files from the finished jar
     exclude("**/*.bbmodel") // BlockBench project files
+}
+
+repositories {
+    // Hibiscus Lib (docs/DEPENDING.md in its repository). GitHub Packages needs a token even for public packages.
+    maven {
+        name = 'HibiscusLib'
+        url = 'https://maven.pkg.github.com/hibiscus-software/hibiscus-lib'
+        credentials {
+            // Locally: gpr.user / gpr.key in ~/.gradle/gradle.properties (a token with read:packages).
+            // In GitHub Actions: the workflow's GITHUB_ACTOR and GITHUB_TOKEN.
+            username = providers.gradleProperty('gpr.user').orElse(providers.environmentVariable('GITHUB_ACTOR')).getOrNull()
+            password = providers.gradleProperty('gpr.key').orElse(providers.environmentVariable('GITHUB_TOKEN')).getOrNull()
+        }
+        content { includeGroup 'software.hibiscus.hibiscuslib' }
+    }
 }
 
 base {
@@ -55,6 +67,8 @@ configurations {
 
 dependencies {
     implementation "net.neoforged:neoforge:${neo_version}"
+    // The GUI theme the HUD draws with. Loaded as a mod in dev runs.
+    implementation "software.hibiscus.hibiscuslib:hibiscuslib:${hibiscuslib_version}"
 }
 
 // Expands the declared properties in neoforge.mods.toml using ${} Groovy notation.
@@ -64,10 +78,11 @@ tasks.withType(ProcessResources).configureEach {
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,
-            mod_version            : mod_version,
+            mod_version            : project.version,
     ]
     inputs.properties replaceProperties
 
@@ -86,6 +101,14 @@ publishing {
         maven {
             url "file://${project.projectDir}/repo"
         }
+    }
+}
+
+// Ship the MIT license inside the mod jar.
+tasks.named('jar', Jar).configure {
+    def licenseName = "LICENSE_${mod_id}"
+    from('LICENSE') {
+        rename { licenseName }
     }
 }
 

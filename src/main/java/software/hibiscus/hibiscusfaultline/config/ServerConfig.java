@@ -82,6 +82,8 @@ public final class ServerConfig {
 
     private static final Map<String, ModConfigSpec.BooleanValue> MODE_ENABLED = new LinkedHashMap<>();
 
+    public static final ModConfigSpec.BooleanValue BUILD_ENABLED;
+
     static {
         BUILDER.comment("Which modes players can pick.").translation(key("modes")).push("modes");
         for (Mode mode : Modes.ALL) {
@@ -90,6 +92,13 @@ public final class ServerConfig {
                     .translation(key("modes." + mode.id()))
                     .define(mode.id(), true));
         }
+        BUILDER.pop();
+
+        BUILDER.comment("The build tool slot to the right of the hotbar.").translation(key("buildTools")).push("buildTools");
+        BUILD_ENABLED = BUILDER
+                .comment("Let players use the build tool slot. The faultline.build.use permission node can still turn it off per player.")
+                .translation(key("buildTools.enabled"))
+                .define("enabled", true);
         BUILDER.pop();
     }
 
@@ -122,6 +131,10 @@ public final class ServerConfig {
                 read(REQUIRE_TOOL),
                 read(TOOL_MUST_SUIT_BLOCK),
                 enabled);
+    }
+
+    public static boolean buildToolsEnabled() {
+        return read(BUILD_ENABLED);
     }
 
     private static <T> T read(ModConfigSpec.ConfigValue<T> value) {

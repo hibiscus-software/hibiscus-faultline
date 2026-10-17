@@ -23,6 +23,7 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import software.hibiscus.hibiscusfaultline.HibiscusFaultline;
+import software.hibiscus.hibiscusfaultline.client.build.BuildClient;
 import software.hibiscus.hibiscusfaultline.config.ClientConfig;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import software.hibiscus.hibiscusfaultline.mode.Mode;
@@ -49,6 +50,7 @@ public final class HibiscusFaultlineClient {
         bus.addListener(HibiscusFaultlineClient::onLoggingIn);
         bus.addListener(HibiscusFaultlineClient::onLoggingOut);
         bus.addListener(HibiscusFaultlineClient::onPlayerRecreated);
+        BuildClient.register(modBus, bus);
     }
 
     private static void registerHud(RegisterGuiLayersEvent event) {

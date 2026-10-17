@@ -11,7 +11,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import software.hibiscus.hibiscusfaultline.server.VeinMineHandler;
 
 public final class FaultlineNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     private FaultlineNetwork() {}
 
@@ -23,5 +23,6 @@ public final class FaultlineNetwork {
                 (payload, context) -> VeinMineHandler.setMode(context.player(), payload.mode()));
         // The client registers its handler in RegisterClientPayloadHandlersEvent, keeping client code out of here.
         registrar.playToClient(CooldownPayload.TYPE, CooldownPayload.STREAM_CODEC);
+        registrar.playToClient(BuildAccessPayload.TYPE, BuildAccessPayload.STREAM_CODEC);
     }
 }

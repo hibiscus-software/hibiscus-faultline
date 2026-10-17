@@ -15,6 +15,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import software.hibiscus.hibiscusfaultline.network.FaultlineNetwork;
+import software.hibiscus.hibiscusfaultline.server.BuildServer;
 import software.hibiscus.hibiscusfaultline.server.VeinMineHandler;
 import org.slf4j.Logger;
 
@@ -27,6 +28,7 @@ public final class HibiscusFaultline {
         container.registerConfig(syncedConfigType(), ServerConfig.SPEC);
         modBus.addListener(FaultlineNetwork::register);
         VeinMineHandler.register(NeoForge.EVENT_BUS);
+        BuildServer.register(modBus, NeoForge.EVENT_BUS);
     }
 
     /**

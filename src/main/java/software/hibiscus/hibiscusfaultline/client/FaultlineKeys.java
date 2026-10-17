@@ -23,10 +23,19 @@ public final class FaultlineKeys {
             InputConstants.KEY_GRAVE,
             CATEGORY);
 
+    /** Enters and leaves the build tool slot. Unbound by default; Ctrl + scroll past the hotbar does the same. */
+    public static final KeyMapping TOGGLE_BUILD_SLOT = new KeyMapping(
+            "key.hibiscusfaultline.toggle_build_slot",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.UNKNOWN.getValue(),
+            CATEGORY);
+
     private FaultlineKeys() {}
 
     static void register(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORY);
         event.register(ACTIVATE);
+        event.register(TOGGLE_BUILD_SLOT);
     }
 }

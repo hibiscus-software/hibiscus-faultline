@@ -19,6 +19,15 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Added
+
+- A build tool slot to the right of the hotbar, the start of the Move, Clone, Stack, Erase and Set build tools. Ctrl +
+  scroll past either end of the hotbar (or the new, unbound "Toggle Build Tool Slot" key) enters it; while it's active,
+  clicks drive the tool instead of the held item. Hold Alt for the tool palette and each tool's options; Alt + scroll
+  changes tool. The tools don't change the world yet.
+- `buildTools.enabled` server option and `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`,
+  `.max_volume` and `.bypass_protection` permission nodes.
+
 ### Fixed
 
 - Vein-mining only takes blocks the held tool is meant for, so a shovel in a tunnel mode no longer digs through

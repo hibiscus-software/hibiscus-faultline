@@ -6,10 +6,12 @@
 
 package software.hibiscus.hibiscusfaultline.config;
 
+import java.util.List;
 import java.util.Locale;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.TranslatableEnum;
+import software.hibiscus.hibiscusfaultline.build.BuildOptions;
 
 /** Per-install preferences. Only registered on the physical client. */
 public final class ClientConfig {
@@ -66,6 +68,27 @@ public final class ClientConfig {
             .comment("The mode used last. Written by the game; used when rememberLastMode is on.")
             .translation(key("lastMode"))
             .define("lastMode", "shapeless");
+
+    public static final ModConfigSpec.BooleanValue BUILD_HINTS;
+    public static final ModConfigSpec.ConfigValue<String> BUILD_LAST_TOOL;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BUILD_OPTIONS;
+
+    static {
+        BUILDER.comment("The build tool slot.").translation(key("buildTools")).push("buildTools");
+        BUILD_HINTS = BUILDER
+                .comment("Show the mouse button hints next to the build tool's name.")
+                .translation(key("buildTools.hints"))
+                .define("hints", true);
+        BUILD_LAST_TOOL = BUILDER
+                .comment("The build tool used last. Written by the game.")
+                .translation(key("buildTools.lastTool"))
+                .define("lastTool", "move");
+        BUILD_OPTIONS = BUILDER
+                .comment("Each build tool's options, as tool.option=true or false. Written by the game.")
+                .translation(key("buildTools.options"))
+                .defineListAllowEmpty("options", new BuildOptions().write(), () -> "", value -> value instanceof String);
+        BUILDER.pop();
+    }
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 

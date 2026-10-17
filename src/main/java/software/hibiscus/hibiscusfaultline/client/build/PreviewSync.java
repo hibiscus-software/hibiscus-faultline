@@ -148,8 +148,7 @@ final class PreviewSync {
         BuildBox box = request.box();
         boolean keepExisting = request.has(BuildOption.KEEP_EXISTING);
         List<Ghost> result = new ArrayList<>();
-        for (int copy = 1; copy <= request.stack().count(); copy++) {
-            BlockPos offset = request.stack().offset(box, copy);
+        for (BlockPos offset : request.stack().offsets(box)) {
             for (BlockPos pos : box.positions()) {
                 BlockState state = level.getBlockState(pos);
                 BlockPos dest = pos.offset(offset);

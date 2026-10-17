@@ -6,6 +6,7 @@
 
 package software.hibiscus.hibiscusfaultline.client.build;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -29,10 +30,12 @@ import org.jspecify.annotations.Nullable;
  * Turns the mouse into selection edits. What the cursor is over is worked out once per frame; clicks, scrolls and
  * keys then act on that.
  *
- * <p>Left-click picks the first and second corner, then extends the box to a clicked block outside it, or clears it
- * when clicking at nothing. Scrolling over a face pushes or pulls that face. For Move and Clone, dragging the gizmo,
- * Move To, rotating or flipping starts placing a destination; from then on scrolling moves the destination along the
- * looked-at axis and left-click cancels it.
+ * <p>Following Axiom: left-click sets the first corner and right-click the second, at any time; middle-click moves the
+ * second corner to the looked-at block. Move and Clone move the selection with the wheel (up pushes it away from
+ * you, down pulls it closer; hold X, Y or Z to keep to one axis), the gizmo, Move To, Ctrl+R and Ctrl+F. Stack grows
+ * copies with the wheel along whichever axis you look along, a grid if you use more than one. Erase and Set push or
+ * pull the face under the cursor with the wheel. While moving or stacking, left-click cancels and right-click
+ * confirms.
  */
 final class SelectionInput {
     /** Height of the gizmo's stalk above the top of the box, and the radius of its handle. */
@@ -120,45 +123,70 @@ final class SelectionInput {
     }
 
     /**
-     * Left-click picks the first corner (again, while the second isn't picked yet). With a selection it cancels: the
-     * destination first, then the selection itself. On the gizmo it starts a drag.
+     * Left-click: on the gizmo, drag it; while moving or stacking, cancel that; otherwise set the first corner on the
+     * looked-at block.
      */
     static void leftClick() {
         if (hover.kind() == Kind.GIZMO) {
             startDrag();
         } else if (Selection.pending()) {
             Selection.resetDestination();
-        } else if (Selection.box() != null) {
-            Selection.clear();
-        } else if (hover.kind() == Kind.BLOCK || hover.kind() == Kind.INSIDE) {
-            Selection.setFirst(hover.block());
+        } else if (BuildClient.tool() == BuildTool.STACK && !Selection.stack().isEmpty()) {
+            Selection.setStack(BuildStack.NONE);
+        } else {
+            BlockPos target = cornerTarget();
+            if (target != null) {
+                Selection.setCorner1(target);
+            }
         }
     }
 
-    /** Right-click picks the second corner. {@return whether it did} Otherwise right-click confirms. */
-    static boolean rightClick() {
-        if (Selection.box() != null || Selection.first() == null) {
-            return false;
+    /** Right-click when it doesn't confirm: set the second corner on the looked-at block. */
+    static void setSecondCorner() {
+        BlockPos target = cornerTarget();
+        if (target != null) {
+            Selection.setCorner2(target);
         }
-        if (hover.kind() == Kind.BLOCK || hover.kind() == Kind.INSIDE) {
-            Selection.complete(hover.block());
-        }
-        return true;
     }
 
-    /** {@return whether right-click would confirm an operation now} */
+    /** The block a corner goes on: the one under the cursor, looking through the selection box if it's in the way. */
+    private static @Nullable BlockPos cornerTarget() {
+        return hover.kind() == Kind.BLOCK || hover.kind() == Kind.INSIDE ? hover.block() : lookedAtBlock();
+    }
+
+    /** {@return whether right-click confirms now} Only while a Move or Clone is being placed or Stack has copies. */
+    static boolean rightClickConfirms() {
+        return Selection.pending() || (BuildClient.tool() == BuildTool.STACK && Selection.box() != null && !Selection.stack().isEmpty());
+    }
+
+    /** {@return whether an operation could be confirmed now, by right-click or the confirm key} */
     static boolean canConfirm() {
         if (Selection.box() == null) {
             return false;
         }
         return switch (BuildClient.tool()) {
-            case MOVE, CLONE -> Selection.pending();
-            case STACK -> Selection.stack().count() > 0;
+            case MOVE, CLONE, STACK -> rightClickConfirms();
             case ERASE, SET -> true;
         };
     }
 
-    /** Extends the selection to the looked-at block, or for Move and Clone (unless set to extend) does Move To. */
+    /** {@return the block under the cursor, ignoring the selection box, for right-click with nothing selected} */
+    static @Nullable BlockPos lookedAtBlock() {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
+        if (player == null || minecraft.level == null) {
+            return null;
+        }
+        Vec3 eye = player.getEyePosition();
+        BlockHitResult hit = lookedAtBlock(minecraft.level, player, eye, eye.add(player.getViewVector(1.0F).scale(reach(player))));
+        return hit != null ? hit.getBlockPos() : null;
+    }
+
+    /**
+     * Middle-click: while moving, Move To the looked-at block; while stacking, stack up to it; for Move and Clone with
+     * "Middle Click: Extend Select" off, start moving with Move To; otherwise move the second corner to the looked-at
+     * block (the first corner, if none is set yet).
+     */
     static void middleClick() {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
@@ -170,12 +198,17 @@ final class SelectionInput {
         if (block == null) {
             return;
         }
+        BlockPos pos = block.getBlockPos();
         boolean moveTo = Selection.box() != null && Selection.hasDestination(BuildClient.tool())
                 && (Selection.pending() || !BuildClient.option(BuildOption.MIDDLE_EXTEND));
         if (moveTo) {
-            moveTo(block.getBlockPos().relative(block.getDirection()));
+            moveTo(pos.relative(block.getDirection()));
+        } else if (BuildClient.tool() == BuildTool.STACK && Selection.box() != null && !Selection.stack().isEmpty()) {
+            stackTo(player, pos);
+        } else if (Selection.isEmpty()) {
+            Selection.setCorner1(pos);
         } else {
-            Selection.extendTo(block.getBlockPos());
+            Selection.setCorner2(pos);
         }
     }
 
@@ -186,41 +219,81 @@ final class SelectionInput {
             return;
         }
         int amount = up ? 1 : -1;
-        if (BuildClient.tool() == BuildTool.STACK) {
-            scrollStack(player, amount);
-            return;
-        }
-        if (Selection.pending()) {
-            Vec3 look = player.getViewVector(1.0F);
-            Direction direction;
-            if (hover.kind() == Kind.FACE && hover.face() != null) {
-                Direction.Axis axis = hover.face().getAxis();
-                direction = Direction.fromAxisAndDirection(axis,
-                        look.get(axis) >= 0 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE);
-            } else {
-                direction = Direction.getApproximateNearest(look);
+        switch (BuildClient.tool()) {
+            case STACK -> scrollStack(player, amount);
+            case MOVE, CLONE -> Selection.setTransform(Selection.transform().moved(scrollDirection(player), amount));
+            case ERASE, SET -> {
+                if (hover.kind() == Kind.FACE && hover.face() != null) {
+                    Selection.moveFace(hover.face(), amount);
+                }
             }
-            Selection.setTransform(Selection.transform().moved(direction, amount));
-        } else if (hover.kind() == Kind.FACE && hover.face() != null) {
-            Selection.moveFace(hover.face(), amount);
         }
     }
 
     /**
-     * Stack: the wheel sets how many copies, Shift + wheel the gap between them. The direction is the way the player
-     * looks when the first copy is added, and is free again once the count is back to zero.
+     * {@return the way scrolling up moves things} Away from the player along the axis they look along most, or along
+     * X, Y or Z while that key is held.
+     */
+    static Direction scrollDirection(LocalPlayer player) {
+        Vec3 look = player.getViewVector(1.0F);
+        Direction.Axis axis = lockedAxis();
+        if (axis == null) {
+            return Direction.getApproximateNearest(look);
+        }
+        return Direction.fromAxisAndDirection(axis, look.get(axis) >= 0 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE);
+    }
+
+    private static Direction.@Nullable Axis lockedAxis() {
+        if (InputConstants.isKeyDown(InputConstants.KEY_X)) {
+            return Direction.Axis.X;
+        }
+        if (InputConstants.isKeyDown(InputConstants.KEY_Y)) {
+            return Direction.Axis.Y;
+        }
+        if (InputConstants.isKeyDown(InputConstants.KEY_Z)) {
+            return Direction.Axis.Z;
+        }
+        return null;
+    }
+
+    /**
+     * Stack: each wheel step adds a copy along the axis the player looks along (or the held X, Y or Z), on the far
+     * side when scrolling up and the near side when scrolling down; using more than one axis makes a grid. Shift +
+     * wheel sets the gap between copies.
      */
     private static void scrollStack(LocalPlayer player, int amount) {
         BuildStack stack = Selection.stack();
         if (Minecraft.getInstance().hasShiftDown()) {
-            if (stack.count() > 0) {
-                Selection.setStack(new BuildStack(stack.direction(), stack.count(), stack.gap() + amount));
+            if (!stack.isEmpty()) {
+                Selection.setStack(stack.withGap(stack.gap() + amount));
             }
             return;
         }
-        Direction direction = stack.count() == 0 ? Direction.getApproximateNearest(player.getViewVector(1.0F)) : stack.direction();
-        int count = Math.clamp(stack.count() + amount, 0, ServerConfig.buildMaxStack());
-        Selection.setStack(count == 0 ? BuildStack.NONE : new BuildStack(direction, count, stack.gap()));
+        Direction direction = scrollDirection(player);
+        int step = direction.getAxisDirection() == Direction.AxisDirection.POSITIVE ? amount : -amount;
+        BuildStack next = stack.withCount(direction.getAxis(), stack.count(direction.getAxis()) + step);
+        if (next.copies() <= ServerConfig.buildMaxStack()) {
+            Selection.setStack(next);
+        }
+    }
+
+    /** Stack up to a block: enough copies along the looked-at axis for the stack to reach {@code target}. */
+    private static void stackTo(LocalPlayer player, BlockPos target) {
+        BuildBox box = Selection.box();
+        BuildStack stack = Selection.stack();
+        Direction.Axis axis = scrollDirection(player).getAxis();
+        int step = box.sizeAlong(axis) + stack.gap();
+        int at = target.get(axis);
+        int count = 0;
+        if (at > box.max().get(axis)) {
+            count = Math.ceilDiv(at - box.max().get(axis), step);
+        } else if (at < box.min().get(axis)) {
+            count = -Math.ceilDiv(box.min().get(axis) - at, step);
+        }
+        BuildStack next = stack.withCount(axis, count);
+        if (next.copies() <= ServerConfig.buildMaxStack()) {
+            Selection.setStack(next);
+        }
     }
 
     static void rotate() {
@@ -238,7 +311,7 @@ final class SelectionInput {
 
     /** Steps back once: cancels a destination, then clears the selection. {@return whether there was anything to undo} */
     static boolean back() {
-        if (BuildClient.tool() == BuildTool.STACK && Selection.stack().count() > 0) {
+        if (BuildClient.tool() == BuildTool.STACK && !Selection.stack().isEmpty()) {
             Selection.setStack(BuildStack.NONE);
             return true;
         }

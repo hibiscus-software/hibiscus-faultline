@@ -55,7 +55,7 @@ public final class BuildValidator {
             case SET -> BuildPlan.set(player, request, creative);
             case MOVE -> request.transform().isIdentity() ? null : BuildPlan.move(player, request, creative);
             case CLONE -> request.transform().isIdentity() ? null : BuildPlan.copy(player, request, creative);
-            case STACK -> request.stack().count() == 0 ? null : BuildPlan.copy(player, request, creative);
+            case STACK -> request.stack().isEmpty() ? null : BuildPlan.copy(player, request, creative);
         });
     }
 
@@ -70,7 +70,7 @@ public final class BuildValidator {
         if (player.isSpectator() || !BuildPermissions.canUse(player, request.tool())) {
             return Optional.of(Component.translatable("hibiscusfaultline.build.problem.no_permission"));
         }
-        if (request.stack().count() > ServerConfig.buildMaxStack()) {
+        if (request.stack().copies() > ServerConfig.buildMaxStack()) {
             return Optional.of(Component.translatable("hibiscusfaultline.build.problem.too_many", ServerConfig.buildMaxStack()));
         }
         long limit = maxVolume(player, creative);

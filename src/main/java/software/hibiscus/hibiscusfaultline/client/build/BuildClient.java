@@ -60,6 +60,7 @@ public final class BuildClient {
         bus.addListener(BuildClient::onPlayerRecreated);
         bus.addListener(BuildClient::onScreenOpening);
         bus.addListener(BuildClient::onTickPost);
+        bus.addListener(BuildClient::onKey);
         bus.addListener(SelectionRenderer::submit);
     }
 
@@ -177,6 +178,7 @@ public final class BuildClient {
             drain(FaultlineKeys.FLIP);
             drain(FaultlineKeys.UNDO);
             drain(FaultlineKeys.REDO);
+            drain(FaultlineKeys.CONFIRM);
             return;
         }
 
@@ -212,6 +214,9 @@ public final class BuildClient {
         }
         while (FaultlineKeys.REDO.consumeClick()) {
             BuildOperation.redo();
+        }
+        while (FaultlineKeys.CONFIRM.consumeClick()) {
+            BuildOperation.confirm();
         }
         if (minecraft.hasAltDown()) {
             minecraft.gui.setScreen(new PaletteScreen());
@@ -307,6 +312,15 @@ public final class BuildClient {
         if (active && event.getNewScreen() instanceof PauseScreen && InputConstants.isKeyDown(InputConstants.KEY_ESCAPE)
                 && (BuildOperation.stop() || SelectionInput.back())) {
             event.setCanceled(true);
+        }
+    }
+
+    /** Erase confirms with Delete or Backspace, as in Axiom. */
+    private static void onKey(InputEvent.Key event) {
+        if (active && tool == BuildTool.ERASE && event.getAction() == InputConstants.PRESS
+                && Minecraft.getInstance().gui.screen() == null
+                && (event.getKey() == InputConstants.KEY_DELETE || event.getKey() == InputConstants.KEY_BACKSPACE)) {
+            BuildOperation.confirm();
         }
     }
 

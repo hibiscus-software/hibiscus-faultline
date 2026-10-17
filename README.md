@@ -40,19 +40,24 @@ hotbar number, to leave. A selection belongs to its tool: switching tools, or fi
 
 | Input | What it does |
 | --- | --- |
-| Left-click | First corner. With a selection: cancel it (the destination first, for Move and Clone) |
-| Right-click | Second corner. With a selection: confirm. During an operation: resume |
-| Scroll over a face | Push or pull that face of the selection |
-| Middle-click | Extend to the looked-at block, or for Move and Clone, Move To (the option "Middle Click: Extend Select" chooses) |
-| Drag the sphere | Move and Clone: slide the destination; scroll then moves it along the looked-at axis |
+| Left-click | First corner (sets it again at any time) |
+| Right-click | Second corner (sets it again at any time). With Erase and nothing selected: erase up to 128 connected blocks of the same type |
+| Middle-click | Moves the second corner to the block you're looking at (the option "Middle Click: Extend Select" chooses this or Move To for Move and Clone) |
+| Scroll | Move and Clone: move the selection, up pushes it away from you and down pulls it closer. Stack: add copies along the axis you look along, a grid if you use more than one. Erase and Set: push or pull the face under the cursor |
+| Hold X, Y or Z | While scrolling, keep to that axis |
+| Shift + scroll | Stack: the gap between copies |
+| Drag the sphere | Move and Clone: slide the destination |
 | Ctrl+R / Ctrl+F | Move and Clone: turn the destination a quarter turn clockwise / flip it along the axis you face |
+| While moving or stacking | Right-click confirms, left-click cancels (for Clone, finishes: the copy stays up after placing so you can place more), middle-click is Move To or stacks up to the clicked block |
+| Delete / Backspace | Erase: confirm |
+| Enter | Confirm (Set, or any tool ready to run) |
 | Left-click during an operation | Pause; a second left-click stops |
-| Escape | Steps back: stop, cancel the destination, clear the selection, then the pause menu |
+| Escape | Steps back: stop, cancel the destination or copies, clear the selection, then the pause menu |
 | Alt (hold) | Tool palette and options; Alt + scroll changes tool |
 | Shift + right-click | Link or unlink a container as a material source |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
-The preview shows ghost blocks where things will land, positions that will be skipped in red, and a bill of
+An arrow on the selection shows which way scrolling up moves it. The preview shows ghost blocks where things will land, positions that will be skipped in red, and a bill of
 materials: what the operation needs against what you have.
 
 ### The tools
@@ -61,9 +66,10 @@ materials: what the operation needs against what you have.
   their state; nothing drops. Options: Keep Existing, Move Entities, Move Air.
 - **Clone** copies block states, one matching item per block. Contents never come along: a chest arrives
   empty. Options: Keep Existing, Copy Air, Copy Entities (creative), Partial.
-- **Stack** repeats the selection. Scroll sets the number of copies and Shift + scroll the gap, in the
-  direction you look when adding the first. Each copy costs like Clone.
-- **Erase** removes everything in the selection as if you mined it. Options: Mask (only the block in your
+- **Stack** repeats the selection in a row, or a grid along more than one axis. Scroll adds copies along the axis
+  you look along and Shift + scroll sets the gap. Each copy costs like Clone.
+- **Erase** removes everything in the selection as if you mined it (confirm with Delete), or right-click a block with
+  nothing selected to erase up to 128 connected blocks of its type. Options: Mask (only the block in your
   offhand, or the one you looked at when turning it on), Fluids.
 - **Set** fills the selection with one block, picked from the options panel or held in your offhand. Options:
   Air Only, Replace, Hollow, Walls, Partial.

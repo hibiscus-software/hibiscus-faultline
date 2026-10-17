@@ -453,7 +453,7 @@ final class BuildToolTests {
         helper.setBlock(0, 1, 0, Blocks.STONE);
         start(helper, player, new BuildRequest(BuildTool.STACK, 0,
                 BuildBox.of(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(0, 1, 0))),
-                BuildTransform.IDENTITY, Optional.empty(), Optional.empty(), new BuildStack(Direction.EAST, 3, 0)));
+                BuildTransform.IDENTITY, Optional.empty(), Optional.empty(), new BuildStack(3, 0, 0, 0)));
         helper.startSequence()
                 .thenWaitUntil(() -> assertRow(helper, Blocks.STONE, 4))
                 .thenExecute(() -> {
@@ -575,6 +575,40 @@ final class BuildToolTests {
                     remove(player);
                 })
                 .thenSucceed();
+    }
+
+    /** Copies along two axes make a grid: 2 along X and 1 up gives 5 copies around the original. */
+    static void stackGrid(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.CREATIVE);
+        helper.setBlock(0, 1, 0, Blocks.STONE);
+        start(helper, player, new BuildRequest(BuildTool.STACK, 0,
+                BuildBox.of(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(0, 1, 0))),
+                BuildTransform.IDENTITY, Optional.empty(), Optional.empty(), new BuildStack(2, 1, 0, 0)));
+        for (int x = 0; x <= 2; x++) {
+            for (int y = 1; y <= 2; y++) {
+                helper.assertBlockPresent(Blocks.STONE, new BlockPos(x, y, 0));
+            }
+        }
+        remove(player);
+        helper.succeed();
+    }
+
+    /** Right-clicking a block with Erase and nothing selected takes the blocks of its type touching it, and only those. */
+    static void eraseConnected(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.CREATIVE);
+        helper.setBlock(0, 1, 0, Blocks.DIRT);
+        helper.setBlock(1, 1, 0, Blocks.DIRT);
+        helper.setBlock(2, 1, 0, Blocks.STONE);
+        helper.setBlock(3, 1, 0, Blocks.DIRT);
+        BlockPos start = helper.absolutePos(new BlockPos(0, 1, 0));
+        start(helper, player, new BuildRequest(BuildTool.ERASE, 0, BuildBox.of(start, start), BuildTransform.IDENTITY,
+                Optional.empty(), Optional.empty(), BuildStack.NONE, true));
+        helper.assertBlockPresent(Blocks.AIR, new BlockPos(0, 1, 0));
+        helper.assertBlockPresent(Blocks.AIR, new BlockPos(1, 1, 0));
+        helper.assertBlockPresent(Blocks.STONE, new BlockPos(2, 1, 0));
+        helper.assertBlockPresent(Blocks.DIRT, new BlockPos(3, 1, 0));
+        remove(player);
+        helper.succeed();
     }
 
     // Helpers

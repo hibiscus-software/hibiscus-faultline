@@ -68,6 +68,14 @@ public final class FaultlineKeys {
             InputConstants.KEY_Y,
             CATEGORY);
 
+    /** Confirms the build operation as it stands, for tools that confirm by key. Enter by default, only in the tool slot. */
+    public static final KeyMapping CONFIRM = new KeyMapping(
+            "key.hibiscusfaultline.build_confirm",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_RETURN,
+            CATEGORY);
+
     private FaultlineKeys() {}
 
     static void register(RegisterKeyMappingsEvent event) {
@@ -78,5 +86,6 @@ public final class FaultlineKeys {
         event.register(FLIP);
         event.register(UNDO);
         event.register(REDO);
+        event.register(CONFIRM);
     }
 }

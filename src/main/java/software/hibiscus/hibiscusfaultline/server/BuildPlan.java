@@ -10,6 +10,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -96,7 +98,8 @@ public final class BuildPlan {
         ServerLevel level = player.level();
         boolean fluids = request.has(BuildOption.FLUIDS);
         boolean withoutTool = ServerConfig.buildEraseWithoutTool();
-        for (BlockPos pos : request.box().positions()) {
+        Iterable<BlockPos> positions = request.connected() ? connected(level, request.box().min()) : request.box().positions();
+        for (BlockPos pos : positions) {
             BlockState state = level.getBlockState(pos);
             if (state.isAir() || !request.masked(state)) {
                 continue;
@@ -117,6 +120,33 @@ public final class BuildPlan {
         }
         plan.order(player.position(), false);
         return plan;
+    }
+
+    /**
+     * The blocks of the same type as the one at {@code start} touching it through faces, nearest first, up to
+     * {@link BuildRequest#CONNECTED_LIMIT}, for Erase's right-click on a block.
+     */
+    private static List<BlockPos> connected(ServerLevel level, BlockPos start) {
+        Block block = level.getBlockState(start).getBlock();
+        List<BlockPos> found = new ArrayList<>();
+        if (level.getBlockState(start).isAir()) {
+            return found;
+        }
+        Set<BlockPos> seen = new HashSet<>();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        queue.add(start.immutable());
+        seen.add(start.immutable());
+        while (!queue.isEmpty() && found.size() < BuildRequest.CONNECTED_LIMIT) {
+            BlockPos pos = queue.poll();
+            found.add(pos);
+            for (Direction side : Direction.values()) {
+                BlockPos next = pos.relative(side);
+                if (level.isLoaded(next) && seen.add(next) && level.getBlockState(next).is(block)) {
+                    queue.add(next);
+                }
+            }
+        }
+        return found;
     }
 
     /** Set: the chosen block into every position of the shape, bottom layer first so falling blocks have support. */
@@ -237,8 +267,7 @@ public final class BuildPlan {
         boolean contents = creative && ServerConfig.buildCreativeCloneContents();
         List<Function<BlockPos, BlockPos>> copies = new ArrayList<>();
         if (request.tool() == BuildTool.STACK) {
-            for (int copy = 1; copy <= request.stack().count(); copy++) {
-                BlockPos offset = request.stack().offset(box, copy);
+            for (BlockPos offset : request.stack().offsets(box)) {
                 copies.add(pos -> pos.offset(offset));
             }
         } else {

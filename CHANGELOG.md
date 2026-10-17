@@ -19,6 +19,27 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Added
+
+- Erase: right-click a block with nothing selected to erase up to 128 connected blocks of the same type. Delete or
+  Backspace confirms an Erase selection, and Enter (rebindable) confirms any tool that's ready.
+- Stack makes grids: copies along more than one axis fill out a grid. Middle-click while stacking stacks up to the
+  clicked block.
+- Hold X, Y or Z while scrolling to keep moving or stacking along that axis, and an arrow shows which way scrolling
+  up goes.
+- Erase plays vanilla's mining sounds on each block as it works through them.
+
+### Changed
+
+- Build tool controls now follow Axiom's. Left-click sets the first corner and right-click the second, at any time;
+  middle-click moves the second corner to the looked-at block. Move and Clone move the selection straight away with
+  the wheel (up pushes it away, down pulls it closer). While moving or stacking, right-click confirms and left-click
+  cancels. Clone stays up after placing so you can place more copies; left-click finishes.
+
+### Fixed
+
+- The selection box no longer flickers against the faces of the blocks it sits on.
+
 ## [1.1.1] - 2026-10-17
 
 ### Changed

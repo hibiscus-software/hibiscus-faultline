@@ -22,10 +22,14 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * @param block the block Set fills with
  * @param mask  the block Erase's Mask and Set's Replace are limited to
- * @param stack how Stack repeats the selection
+ * @param stack     how Stack repeats the selection
+ * @param connected Erase only: instead of the box, the blocks of the same type connected to {@code box.min()}
  */
 public record BuildRequest(BuildTool tool, int options, BuildBox box, BuildTransform transform,
-                           Optional<Holder<Block>> block, Optional<Holder<Block>> mask, BuildStack stack) {
+                           Optional<Holder<Block>> block, Optional<Holder<Block>> mask, BuildStack stack, boolean connected) {
+    /** How many connected blocks Erase takes at most when right-clicking a block without a selection. */
+    public static final int CONNECTED_LIMIT = 128;
+
     public static final StreamCodec<ByteBuf, BuildTool> TOOL_CODEC = ByteBufCodecs.VAR_INT.map(BuildTool::byIndex, BuildTool::ordinal);
     private static final StreamCodec<RegistryFriendlyByteBuf, Optional<Holder<Block>>> BLOCK_CODEC =
             ByteBufCodecs.optional(ByteBufCodecs.holderRegistry(Registries.BLOCK));
@@ -37,12 +41,18 @@ public record BuildRequest(BuildTool tool, int options, BuildBox box, BuildTrans
             BLOCK_CODEC, BuildRequest::block,
             BLOCK_CODEC, BuildRequest::mask,
             BuildStack.STREAM_CODEC, BuildRequest::stack,
+            ByteBufCodecs.BOOL, BuildRequest::connected,
             BuildRequest::new);
 
     /** A request with no Stack settings, for every tool but Stack. */
     public BuildRequest(BuildTool tool, int options, BuildBox box, BuildTransform transform,
                         Optional<Holder<Block>> block, Optional<Holder<Block>> mask) {
-        this(tool, options, box, transform, block, mask, BuildStack.NONE);
+        this(tool, options, box, transform, block, mask, BuildStack.NONE, false);
+    }
+
+    public BuildRequest(BuildTool tool, int options, BuildBox box, BuildTransform transform,
+                        Optional<Holder<Block>> block, Optional<Holder<Block>> mask, BuildStack stack) {
+        this(tool, options, box, transform, block, mask, stack, false);
     }
 
     public boolean has(BuildOption option) {
@@ -70,6 +80,9 @@ public record BuildRequest(BuildTool tool, int options, BuildBox box, BuildTrans
 
     /** {@return how many blocks the operation covers, which the volume limit applies to} Every copy counts for Stack. */
     public long volume() {
-        return tool == BuildTool.STACK ? box.volume() * Math.max(1, stack.count()) : box.volume();
+        if (connected) {
+            return CONNECTED_LIMIT;
+        }
+        return tool == BuildTool.STACK ? box.volume() * Math.max(1, stack.copies()) : box.volume();
     }
 }

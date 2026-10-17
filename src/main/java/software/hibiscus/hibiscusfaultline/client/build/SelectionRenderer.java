@@ -40,8 +40,14 @@ final class SelectionRenderer {
     private static final int GHOST_ALPHA = 150;
     private static final int SKIPPED = 0xFFFF4040;
     private static final int SPHERE_SEGMENTS = 10;
-    /** Pushes fills slightly outwards so they don't flicker against block faces. */
-    private static final float INFLATE = 0.004F;
+    /**
+     * Pushes fills and edges slightly outwards so they don't flicker (z-fight) against the block faces they sit on;
+     * edges a little further than fills, so they stay on top of them too.
+     */
+    private static final float INFLATE = 0.01F;
+    private static final float LINE_INFLATE = 0.02F;
+    private static final double ARROW_LENGTH = 1.5;
+    private static final double ARROW_HEAD = 0.35;
 
     /** Model parts per state for the current ghost list, so models aren't looked up every frame. */
     private static Map<BlockState, List<BlockStateModelPart>> partsCache = new IdentityHashMap<>();
@@ -77,8 +83,11 @@ final class SelectionRenderer {
         }
 
         BuildBox destination = Selection.destination();
-        if (tool == BuildTool.STACK && Selection.stack().count() > 0) {
+        if (tool == BuildTool.STACK && !Selection.stack().isEmpty()) {
             destination = Selection.stack().span(box);
+        }
+        if (tool != BuildTool.ERASE && tool != BuildTool.SET && minecraft.player != null) {
+            drawScrollArrow(draw, destination != null ? destination : box, SelectionInput.scrollDirection(minecraft.player), colour);
         }
         Direction face = hover.kind() == SelectionInput.Kind.FACE ? hover.face() : null;
         if (destination != null) {
@@ -98,6 +107,22 @@ final class SelectionRenderer {
             draw.line(gizmo.subtract(0, SelectionInput.GIZMO_STALK, 0), gizmo.subtract(0, SelectionInput.GIZMO_RADIUS, 0), ARGB.color(LINE_ALPHA, colour));
             draw.sphere(gizmo, SelectionInput.GIZMO_RADIUS, handle);
         }
+    }
+
+    /** An arrow out of the face the wheel pushes towards, like Axiom's, so it's clear which way scrolling up goes. */
+    private static void drawScrollArrow(Draw draw, BuildBox box, Direction direction, int colour) {
+        Vec3 centre = box.aabb().getCenter();
+        Vec3 normal = Vec3.atLowerCornerOf(direction.getUnitVec3i());
+        double half = box.sizeAlong(direction.getAxis()) / 2.0;
+        Vec3 start = centre.add(normal.scale(half + 0.1));
+        Vec3 tip = start.add(normal.scale(ARROW_LENGTH));
+        Direction side = direction.getAxis() == Direction.Axis.Y ? Direction.EAST : Direction.UP;
+        Vec3 across = Vec3.atLowerCornerOf(side.getUnitVec3i()).scale(ARROW_HEAD);
+        Vec3 back = tip.subtract(normal.scale(ARROW_HEAD));
+        int line = ARGB.color(LINE_ALPHA, colour);
+        draw.line(start, tip, line);
+        draw.line(tip, back.add(across), line);
+        draw.line(tip, back.subtract(across), line);
     }
 
     private static void drawSkipped(Draw draw) {
@@ -202,8 +227,15 @@ final class SelectionRenderer {
                     face(pose, buffer, x0 - INFLATE, y0 - INFLATE, z0 - INFLATE, x1 + INFLATE, y1 + INFLATE, z1 + INFLATE, face, faceFill);
                 }
             });
+            float lx0 = x0 - LINE_INFLATE;
+            float ly0 = y0 - LINE_INFLATE;
+            float lz0 = z0 - LINE_INFLATE;
+            float lx1 = x1 + LINE_INFLATE;
+            float ly1 = y1 + LINE_INFLATE;
+            float lz1 = z1 + LINE_INFLATE;
             collector.submitCustomGeometry(poseStack, lineType, (pose, buffer) -> {
-                float[][] corners = {{x0, y0, z0}, {x1, y0, z0}, {x1, y0, z1}, {x0, y0, z1}, {x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}};
+                float[][] corners = {{lx0, ly0, lz0}, {lx1, ly0, lz0}, {lx1, ly0, lz1}, {lx0, ly0, lz1},
+                        {lx0, ly1, lz0}, {lx1, ly1, lz0}, {lx1, ly1, lz1}, {lx0, ly1, lz1}};
                 int[][] edges = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
                 for (int[] edge : edges) {
                     float[] a = corners[edge[0]];

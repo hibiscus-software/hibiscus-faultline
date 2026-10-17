@@ -17,7 +17,7 @@ import software.hibiscus.hibiscusfaultline.server.LinkedContainers;
 import software.hibiscus.hibiscusfaultline.server.VeinMineHandler;
 
 public final class FaultlineNetwork {
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
 
     private FaultlineNetwork() {}
 

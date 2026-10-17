@@ -17,29 +17,33 @@ import software.hibiscus.hibiscusfaultline.build.BuildTransform;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The local player's selection and, for Move and Clone, where it's going. Shared by every tool, so switching tools
- * keeps it. Cleared on logout and dimension change.
+ * The local player's selection: two corners, and for Move and Clone where it's going, for Stack its copies. Either
+ * corner can be set again at any time. Cleared when switching tools, after an operation, on logout and on dimension
+ * change.
  */
 final class Selection {
-    /** The first corner while the second hasn't been picked yet. */
-    private static @Nullable BlockPos first;
-    private static @Nullable BuildBox box;
+    private static @Nullable BlockPos corner1;
+    private static @Nullable BlockPos corner2;
     private static BuildTransform transform = BuildTransform.IDENTITY;
-    /** Whether the player has started placing a destination (dragged the gizmo, rotated, flipped or used Move To). */
+    /** Whether a destination is being placed: the selection was scrolled, dragged, rotated, flipped or moved to. */
     private static boolean pending;
-    /** Stack's copies, kept apart from the Move and Clone destination. */
     private static BuildStack stack = BuildStack.NONE;
     /** Bumped on every change, so caches know when to rebuild. */
     private static int version;
 
     private Selection() {}
 
+    /** {@return the one corner picked so far, while the other is still missing} */
     static @Nullable BlockPos first() {
-        return first;
+        if (corner1 != null && corner2 == null) {
+            return corner1;
+        }
+        return corner1 == null ? corner2 : null;
     }
 
+    /** {@return the selected box, once both corners are picked} */
     static @Nullable BuildBox box() {
-        return box;
+        return corner1 != null && corner2 != null ? BuildBox.of(corner1, corner2) : null;
     }
 
     static BuildTransform transform() {
@@ -61,11 +65,9 @@ final class Selection {
         }
     }
 
-
-
     /** {@return whether a destination is being placed for the current tool} */
     static boolean pending() {
-        return pending && box != null && hasDestination(BuildClient.tool());
+        return pending && box() != null && hasDestination(BuildClient.tool());
     }
 
     static boolean hasDestination(BuildTool tool) {
@@ -74,50 +76,39 @@ final class Selection {
 
     /** {@return the box the selection lands in, or {@code null} without a pending destination} */
     static @Nullable BuildBox destination() {
-        return pending() ? transform.destination(box) : null;
+        return pending() ? transform.destination(box()) : null;
     }
 
     static boolean isEmpty() {
-        return first == null && box == null;
+        return corner1 == null && corner2 == null;
     }
 
-    static void setFirst(BlockPos pos) {
-        first = pos.immutable();
-        box = null;
-        resetDestination();
-        changed();
+    static void setCorner1(BlockPos pos) {
+        corner1 = pos.immutable();
+        reshaped();
     }
 
-    static void complete(BlockPos second) {
-        if (first != null) {
-            box = BuildBox.of(first, second);
-            first = null;
-            resetDestination();
-            changed();
-        }
+    static void setCorner2(BlockPos pos) {
+        corner2 = pos.immutable();
+        reshaped();
     }
 
-    static void extendTo(BlockPos pos) {
-        if (box != null) {
-            box = box.including(pos);
-            changed();
-        } else if (first != null) {
-            complete(pos);
-        }
-    }
-
+    /** Pushes one face of the box out, or pulls it in when {@code amount} is negative. */
     static void moveFace(Direction face, int amount) {
-        if (box != null) {
-            BuildBox moved = box.withFaceMoved(face, amount);
-            if (!moved.equals(box)) {
-                box = moved;
-                changed();
-            }
+        BuildBox box = box();
+        if (box == null) {
+            return;
+        }
+        BuildBox moved = box.withFaceMoved(face, amount);
+        if (!moved.equals(box)) {
+            corner1 = moved.min();
+            corner2 = moved.max();
+            reshaped();
         }
     }
 
     static void setTransform(BuildTransform value) {
-        if (box != null && (!pending || !value.equals(transform))) {
+        if (box() != null && (!pending || !value.equals(transform))) {
             transform = value;
             pending = true;
             changed();
@@ -133,9 +124,9 @@ final class Selection {
     }
 
     static void clear() {
-        if (!isEmpty() || pending) {
-            first = null;
-            box = null;
+        if (!isEmpty() || pending || !stack.isEmpty()) {
+            corner1 = null;
+            corner2 = null;
             transform = BuildTransform.IDENTITY;
             pending = false;
             stack = BuildStack.NONE;
@@ -145,12 +136,21 @@ final class Selection {
 
     /** {@return the operation as it stands, for the server to check} {@code null} without a finished selection. */
     static @Nullable BuildRequest request(BuildTool tool, int options) {
+        BuildBox box = box();
         if (box == null) {
             return null;
         }
         return new BuildRequest(tool, options, box, pending() ? transform : BuildTransform.IDENTITY,
                 tool == BuildTool.SET ? BuildOperation.setBlock() : Optional.empty(), BuildOperation.mask(tool),
                 tool == BuildTool.STACK ? stack : BuildStack.NONE);
+    }
+
+    /** A new shape starts afresh: the destination and the copies belonged to the old one. */
+    private static void reshaped() {
+        transform = BuildTransform.IDENTITY;
+        pending = false;
+        stack = BuildStack.NONE;
+        changed();
     }
 
     private static void changed() {

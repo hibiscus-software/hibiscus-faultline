@@ -17,6 +17,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
@@ -33,6 +34,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
@@ -64,6 +66,8 @@ final class BuildJob {
     /** Placing without neighbour updates; those run once when the job ends. */
     private static final int PLACE_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
     private static final int PROGRESS_INTERVAL = 5;
+    /** Vanilla plays a mining hit sound every 4 ticks. */
+    private static final int HIT_SOUND_INTERVAL = 4;
 
     private final ServerPlayer player;
     private final ServerLevel level;
@@ -203,6 +207,9 @@ final class BuildJob {
             }
             slot.elapsed++;
             breakTicksSpent++;
+            if (slot.elapsed % HIT_SOUND_INTERVAL == 1) {
+                playHitSound(slot.task.pos());
+            }
             if (slot.elapsed >= slot.ticks) {
                 level.destroyBlockProgress(crackId(i), slot.task.pos(), -1);
                 slots[i] = null;
@@ -508,6 +515,12 @@ final class BuildJob {
         blockEntity.setChanged();
     }
 
+    /** The knocking sound vanilla plays every few ticks while a player mines a block, at the same volume and pitch. */
+    private void playHitSound(BlockPos pos) {
+        SoundType sound = level.getBlockState(pos).getSoundType(level, pos, player);
+        level.playSound(null, pos, sound.getHitSound(), SoundSource.BLOCKS, (sound.getVolume() + 1.0F) / 8.0F, sound.getPitch() * 0.5F);
+    }
+
     /** Runs the neighbour and shape updates held back during the job, pays out experience and reports. */
     private void finish() {
         completeMoveNow();
@@ -588,8 +601,7 @@ final class BuildJob {
         takeEntities(false);
         List<BiFunction<BuildBox, Vec3, Vec3>> placements = new ArrayList<>();
         if (request.tool() == BuildTool.STACK) {
-            for (int copy = 1; copy <= request.stack().count(); copy++) {
-                BlockPos offset = request.stack().offset(request.box(), copy);
+            for (BlockPos offset : request.stack().offsets(request.box())) {
                 placements.add((box, pos) -> pos.add(offset.getX(), offset.getY(), offset.getZ()));
             }
         } else {

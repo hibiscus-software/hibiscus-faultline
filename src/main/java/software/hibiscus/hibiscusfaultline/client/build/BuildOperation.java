@@ -22,9 +22,12 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import software.hibiscus.hibiscusfaultline.build.BuildBox;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
+import software.hibiscus.hibiscusfaultline.build.BuildStack;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
+import software.hibiscus.hibiscusfaultline.build.BuildTransform;
 import software.hibiscus.hibiscusfaultline.config.ClientConfig;
 import software.hibiscus.hibiscusfaultline.network.BuildConfirmPayload;
 import software.hibiscus.hibiscusfaultline.network.BuildControlPayload;
@@ -38,8 +41,8 @@ import org.jspecify.annotations.Nullable;
  */
 final class BuildOperation {
     private static @Nullable BuildProgressPayload progress;
-    /** Set when an operation is confirmed; the selection clears once it finishes. */
-    private static boolean confirmed;
+    /** The tool of the operation just confirmed; once it finishes the selection clears (Clone keeps its hologram). */
+    private static @Nullable BuildTool confirmed;
     private static List<BlockPos> linked = List.of();
     private static final Map<BuildTool, Holder<Block>> MASKS = new EnumMap<>(BuildTool.class);
 
@@ -60,9 +63,12 @@ final class BuildOperation {
 
     static void receive(BuildProgressPayload payload) {
         progress = payload.state() == BuildProgressPayload.FINISHED ? null : payload;
-        if (progress == null && confirmed) {
-            confirmed = false;
-            Selection.clear();
+        if (progress == null && confirmed != null) {
+            // Like Axiom, Clone stays up after placing so more copies can go down; left-click finishes it.
+            if (confirmed != BuildTool.CLONE) {
+                Selection.clear();
+            }
+            confirmed = null;
         }
     }
 
@@ -84,8 +90,9 @@ final class BuildOperation {
     }
 
     /**
-     * Right-click: resumes a paused operation; with Shift, links or unlinks the looked-at container; picks the second
-     * corner; otherwise confirms the operation as it stands.
+     * Right-click: resumes a paused operation; with Shift, links or unlinks the looked-at container; confirms a Move,
+     * Clone or Stack being placed; with nothing selected in Erase, erases the blocks connected to the looked-at one;
+     * otherwise sets the second corner.
      */
     static void rightClick() {
         Minecraft minecraft = Minecraft.getInstance();
@@ -101,15 +108,37 @@ final class BuildOperation {
             }
             return;
         }
-        if (SelectionInput.rightClick() || !SelectionInput.canConfirm()) {
+        if (SelectionInput.rightClickConfirms()) {
+            confirm();
+        } else if (Selection.isEmpty() && BuildClient.tool() == BuildTool.ERASE) {
+            BlockPos pos = SelectionInput.lookedAtBlock();
+            if (pos != null) {
+                eraseConnected(pos);
+            }
+        } else {
+            SelectionInput.setSecondCorner();
+        }
+    }
+
+    /** Runs the operation as it stands, if it can run: right-click, the confirm key, or Delete for Erase. */
+    static void confirm() {
+        if (running() || !SelectionInput.canConfirm()) {
             return;
         }
         BuildTool tool = BuildClient.tool();
         BuildRequest request = Selection.request(tool, BuildClient.optionMask(tool));
         if (request != null) {
-            confirmed = true;
+            confirmed = tool;
             ClientPacketDistributor.sendToServer(new BuildConfirmPayload(request));
         }
+    }
+
+    /** Erase's right-click on a block with nothing selected: up to 128 connected blocks of the same type. */
+    private static void eraseConnected(BlockPos pos) {
+        BuildBox box = BuildBox.of(pos, pos);
+        ClientPacketDistributor.sendToServer(new BuildConfirmPayload(new BuildRequest(BuildTool.ERASE,
+                BuildClient.optionMask(BuildTool.ERASE), box, BuildTransform.IDENTITY, Optional.empty(),
+                mask(BuildTool.ERASE), BuildStack.NONE, true)));
     }
 
     static void undo() {
@@ -179,7 +208,7 @@ final class BuildOperation {
 
     static void reset() {
         progress = null;
-        confirmed = false;
+        confirmed = null;
         linked = List.of();
         MASKS.clear();
     }

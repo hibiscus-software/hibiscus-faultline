@@ -25,6 +25,7 @@ import net.minecraft.world.entity.HumanoidArm;
 import software.hibiscus.hibiscusfaultline.build.BuildBox;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildPreview;
+import software.hibiscus.hibiscusfaultline.build.BuildStack;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.client.FaultlineKeys;
 import software.hibiscus.hibiscusfaultline.client.build.FaultlineTheme.MouseHint;
@@ -122,35 +123,56 @@ final class BuildHud {
         if (Minecraft.getInstance().hasShiftDown()) {
             hints.add(hint(MouseHint.RIGHT, "link"));
         }
+        BuildTool tool = BuildClient.tool();
         if (box == null) {
             hints.add(hint(MouseHint.LEFT, "first_point"));
-            if (Selection.first() != null) {
-                hints.add(hint(MouseHint.RIGHT, "second_point"));
+            boolean eraseConnected = Selection.isEmpty() && tool == BuildTool.ERASE;
+            hints.add(hint(MouseHint.RIGHT, eraseConnected ? "erase_connected" : "second_point"));
+            if (!Selection.isEmpty()) {
+                hints.add(hint(MouseHint.MIDDLE, "corner_here"));
+                hints.add(keyHint("key_clear", Component.translatable("key.keyboard.escape")));
             }
             return hints;
         }
-        if (BuildClient.tool() == BuildTool.STACK) {
-            hints.add(hint(MouseHint.LEFT, "cancel"));
-            hints.add(hint(MouseHint.SCROLL, "scroll_count"));
-            if (Selection.stack().count() > 0) {
-                hints.add(hint(MouseHint.SCROLL, "scroll_gap"));
+        boolean gizmo = hovered == SelectionInput.Kind.GIZMO || SelectionInput.dragging();
+        boolean stacking = tool == BuildTool.STACK && !Selection.stack().isEmpty();
+        if (Selection.pending() || stacking) {
+            hints.add(hint(MouseHint.LEFT, gizmo ? "drag" : tool == BuildTool.CLONE ? "finish" : "cancel"));
+            if (!Minecraft.getInstance().hasShiftDown()) {
                 hints.add(hint(MouseHint.RIGHT, "confirm"));
             }
+            hints.add(hint(MouseHint.MIDDLE, stacking ? "stack_to" : "move_to"));
+            hints.add(hint(MouseHint.SCROLL, stacking ? "stack_scroll" : "scroll_move"));
+            if (stacking) {
+                hints.add(hint(MouseHint.SCROLL, "scroll_gap"));
+            }
+            hints.add(new Hint(null, Component.translatable("hibiscusfaultline.build.hint.axis")));
             return hints;
         }
-        boolean destinationTool = Selection.hasDestination(BuildClient.tool());
-        hints.add(hint(MouseHint.LEFT, hovered == SelectionInput.Kind.GIZMO || SelectionInput.dragging() ? "drag" : "cancel"));
-        if (Selection.pending()) {
-            hints.add(hint(MouseHint.SCROLL, "scroll_move"));
-        } else if (hovered == SelectionInput.Kind.FACE) {
-            hints.add(hint(MouseHint.SCROLL, "scroll_face"));
+        hints.add(hint(MouseHint.LEFT, gizmo ? "drag" : "first_point"));
+        hints.add(hint(MouseHint.RIGHT, "second_point"));
+        boolean moveTo = Selection.hasDestination(tool) && !BuildClient.option(BuildOption.MIDDLE_EXTEND);
+        hints.add(hint(MouseHint.MIDDLE, moveTo ? "move_to" : "corner_here"));
+        switch (tool) {
+            case MOVE, CLONE -> hints.add(hint(MouseHint.SCROLL, "scroll_move"));
+            case STACK -> hints.add(hint(MouseHint.SCROLL, "stack_scroll"));
+            case ERASE, SET -> {
+                if (hovered == SelectionInput.Kind.FACE) {
+                    hints.add(hint(MouseHint.SCROLL, "scroll_face"));
+                }
+            }
         }
-        boolean moveTo = destinationTool && (Selection.pending() || !BuildClient.option(BuildOption.MIDDLE_EXTEND));
-        hints.add(hint(MouseHint.MIDDLE, moveTo ? "move_to" : "extend_to"));
-        if (!Minecraft.getInstance().hasShiftDown() && SelectionInput.canConfirm()) {
-            hints.add(hint(MouseHint.RIGHT, "confirm"));
+        if (tool == BuildTool.ERASE) {
+            hints.add(keyHint("key_erase", Component.translatable("key.keyboard.delete")));
+        } else if (tool == BuildTool.SET) {
+            hints.add(keyHint("key_fill", FaultlineKeys.CONFIRM.getTranslatedKeyMessage()));
         }
+        hints.add(keyHint("key_clear", Component.translatable("key.keyboard.escape")));
         return hints;
+    }
+
+    private static Hint keyHint(String key, Component keyName) {
+        return new Hint(null, Component.translatable("hibiscusfaultline.build.hint." + key, keyName));
     }
 
     private static Hint hint(MouseHint mouse, String key) {
@@ -162,9 +184,14 @@ final class BuildHud {
         BuildBox box = Selection.box();
         Component label;
         int[] values;
-        if (BuildClient.tool() == BuildTool.STACK && Selection.stack().count() > 0) {
+        String extra = "";
+        if (BuildClient.tool() == BuildTool.STACK && box != null && !Selection.stack().isEmpty()) {
+            BuildStack stack = Selection.stack();
             label = Component.translatable("hibiscusfaultline.build.readout.stack");
-            values = new int[] {Selection.stack().count(), Selection.stack().gap()};
+            values = new int[] {stack.x(), stack.y(), stack.z()};
+            if (stack.gap() > 0) {
+                extra = Component.translatable("hibiscusfaultline.build.readout.gap", stack.gap()).getString();
+            }
         } else if (Selection.pending()) {
             BlockPos offset = Selection.transform().offset();
             label = Component.translatable("hibiscusfaultline.build.readout.offset");
@@ -182,7 +209,7 @@ final class BuildHud {
             values = new int[] {box.sizeX(), box.sizeY(), box.sizeZ()};
         }
         int[] colours = {FaultlineTheme.axisX(), FaultlineTheme.axisY(), FaultlineTheme.axisZ()};
-        int width = font.width(label);
+        int width = font.width(label) + font.width(extra);
         for (int value : values) {
             width += font.width(" " + value);
         }
@@ -196,6 +223,7 @@ final class BuildHud {
             graphics.text(font, text, x, y, colours[i], true);
             x += font.width(text);
         }
+        graphics.text(font, extra, x, y, FaultlineTheme.readoutLabel(), true);
     }
 
     /** A bar above the readout while an operation runs: blocks done of the total, and the time left or why it's paused. */

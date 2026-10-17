@@ -49,6 +49,8 @@
   "hibiscusfaultline.configuration.shapedModesMatch.tooltip": "Tunnel and square modes only take blocks that match the one you broke.",
   "hibiscusfaultline.configuration.requireTool": "Require a Tool",
   "hibiscusfaultline.configuration.requireTool.tooltip": "Only vein-mine while holding a tool. When off, any item or a bare hand works.",
+  "hibiscusfaultline.configuration.toolMustSuitBlock": "Tool Must Suit Block",
+  "hibiscusfaultline.configuration.toolMustSuitBlock.tooltip": "Only take blocks the held tool is meant for, so a shovel skips stone and a pickaxe skips dirt.",
   "hibiscusfaultline.configuration.modes": "Enabled Modes",
   "hibiscusfaultline.configuration.modes.tooltip": "Choose which modes players can scroll to.",
   "hibiscusfaultline.configuration.modes.shapeless": "Shapeless",

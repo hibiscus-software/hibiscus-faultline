@@ -25,6 +25,7 @@ public record Settings(
         boolean mergeWood,
         boolean shapedModesMatch,
         boolean requireTool,
+        boolean toolMustSuitBlock,
         int enabledModes) {
 
     public boolean isEnabled(Mode mode) {

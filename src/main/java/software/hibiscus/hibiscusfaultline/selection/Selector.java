@@ -66,7 +66,10 @@ public final class Selector {
         GameType gameType = gameType(player);
         boolean includedOnly = BuiltInRegistries.BLOCK.get(FaultlineTags.INCLUDED_ONLY).map(set -> set.size() > 0).orElse(false);
         BlockState originState = level.getBlockState(origin);
-        if (!canBreak(level, player, gameType, origin, originState, includedOnly)) {
+        ItemStack held = player.getMainHandItem();
+        boolean originInstant = originState.getDestroySpeed(level, origin) == 0;
+        if (!canBreak(level, player, gameType, origin, originState, includedOnly)
+                || (settings.toolMustSuitBlock() && !originInstant && !toolSuits(held, originState))) {
             return List.of();
         }
 
@@ -80,7 +83,9 @@ public final class Selector {
             BlockState state = level.getBlockState(pos);
             return MatchRules.leavesAllowed(originState, state)
                     && same.test(state)
-                    && canBreak(level, player, gameType, pos, state, includedOnly);
+                    && canBreak(level, player, gameType, pos, state, includedOnly)
+                    && (!settings.toolMustSuitBlock() || toolSuits(held, state)
+                            || (originInstant && state.getDestroySpeed(level, pos) == 0));
         };
 
         SelectionContext context = new SelectionContext(
@@ -104,6 +109,18 @@ public final class Selector {
 
     public static boolean isTool(ItemStack stack) {
         return stack.has(DataComponents.TOOL) || stack.is(Tags.Items.TOOLS);
+    }
+
+    /**
+     * {@return whether {@code held} is the right thing to mine {@code state} with} A tool has to be
+     * effective on the block (a shovel on dirt, not on cobblestone). Anything else, including a bare
+     * hand, only suits blocks that drop without a tool.
+     */
+    public static boolean toolSuits(ItemStack held, BlockState state) {
+        if (held.has(DataComponents.TOOL)) {
+            return held.isCorrectToolForDrops(state) || held.getDestroySpeed(state) > 1.0F;
+        }
+        return !state.requiresCorrectToolForDrops();
     }
 
     private static boolean canBreak(Level level, Player player, GameType gameType, BlockPos pos, BlockState state, boolean includedOnly) {

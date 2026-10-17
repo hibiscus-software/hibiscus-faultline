@@ -19,6 +19,13 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Vein-mining only takes blocks the held tool is meant for, so a shovel in a tunnel mode no longer digs through
+  cobblestone and a pickaxe no longer takes dirt. A bare hand or non-tool item only takes blocks that drop without a
+  tool. Instant-break blocks (flowers, torches) are only taken when the vein started on one. Turn it off with the new
+  `toolMustSuitBlock` server option.
+
 ## [1.0.0] - 2026-10-16
 
 The first release of Hibiscus Faultline, for Minecraft 26.3 on NeoForge 26.3.0.23-beta or newer. Needs Hibiscus Lib

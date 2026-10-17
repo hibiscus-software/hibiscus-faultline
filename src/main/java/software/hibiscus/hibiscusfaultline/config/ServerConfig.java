@@ -75,6 +75,11 @@ public final class ServerConfig {
             .translation(key("requireTool"))
             .define("requireTool", false);
 
+    public static final ModConfigSpec.BooleanValue TOOL_MUST_SUIT_BLOCK = BUILDER
+            .comment("Only take blocks the held tool is meant for, so a shovel skips stone and a pickaxe skips dirt. A bare hand or non-tool item only takes blocks that drop without a tool.")
+            .translation(key("toolMustSuitBlock"))
+            .define("toolMustSuitBlock", true);
+
     private static final Map<String, ModConfigSpec.BooleanValue> MODE_ENABLED = new LinkedHashMap<>();
 
     static {
@@ -115,6 +120,7 @@ public final class ServerConfig {
                 read(MERGE_WOOD),
                 read(SHAPED_MODES_MATCH),
                 read(REQUIRE_TOOL),
+                read(TOOL_MUST_SUIT_BLOCK),
                 enabled);
     }
 

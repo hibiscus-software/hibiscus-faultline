@@ -83,6 +83,7 @@ final class BuildJob {
     private final List<Lifted> lifted = new ArrayList<>();
     /** Entities taken along by Move, or copied by Clone and Stack, saved with where they were. */
     private final List<CompoundTag> entities = new ArrayList<>();
+    private final BuildHistory.Operation history;
     private MovePhase movePhase = MovePhase.WAITING;
     private int moveIndex;
 
@@ -112,6 +113,7 @@ final class BuildJob {
         this.breakWithoutTool = ServerConfig.buildEraseWithoutTool();
         this.sources = new BuildSources(player);
         this.slots = new Slot[creative ? 0 : ServerConfig.buildEraseParallel()];
+        this.history = BuildHistory.begin(player, creative);
     }
 
     ServerPlayer player() {
@@ -176,7 +178,8 @@ final class BuildJob {
         if (!finished && next >= tasks.size() && activeSlots() == 0) {
             if (movePhase != MovePhase.DONE && request.tool() == BuildTool.MOVE) {
                 stepMove(ServerConfig.buildBlocksPerTick());
-            } else {
+            }
+            if (movePhase == MovePhase.DONE || request.tool() != BuildTool.MOVE) {
                 finish();
             }
         }
@@ -277,6 +280,8 @@ final class BuildJob {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (creative || BuildPlan.isLiquid(state)) {
             // Creative deletes: no drops, and contents go with the block. Fluids have nothing to drop either way.
+            // A creative undo puts the contents back, so they're kept in the history.
+            history.changed(pos, state, creative && blockEntity != null ? blockEntity.saveWithoutMetadata(level.registryAccess()) : null);
             level.setBlock(pos, Blocks.AIR.defaultBlockState(), PLACE_FLAGS | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS);
             changed.add(pos);
             return true;
@@ -306,6 +311,7 @@ final class BuildJob {
             experience += state.getExpDrop(level, pos, blockEntity, player, lootTool);
         }
         level.levelEvent(LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(state));
+        history.changed(pos, state, null);
         level.setBlock(pos, Blocks.AIR.defaultBlockState(), PLACE_FLAGS);
         changed.add(pos);
         sources.give(returns);
@@ -337,6 +343,7 @@ final class BuildJob {
         if (task.data() != null && level.getBlockEntity(pos) instanceof BlockEntity blockEntity) {
             loadData(blockEntity, task.data());
         }
+        history.changed(pos, before.getState(), null);
         changed.add(pos);
         return true;
     }
@@ -417,6 +424,7 @@ final class BuildJob {
         if (entry.data != null && level.getBlockEntity(dest) instanceof BlockEntity blockEntity) {
             loadData(blockEntity, entry.data);
         }
+        history.moved(entry.pair.source(), dest, entry.pair.state());
         changed.add(dest);
         done++;
     }
@@ -517,6 +525,7 @@ final class BuildJob {
             level.updateNeighborsAt(pos, shaped.getBlock());
             shaped.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
         }
+        BuildHistory.record(player, history);
         if (experience > 0) {
             ExperienceOrb.award(level, player.position(), experience);
         }

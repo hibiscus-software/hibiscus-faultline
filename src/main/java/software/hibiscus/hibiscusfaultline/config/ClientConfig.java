@@ -71,6 +71,9 @@ public final class ClientConfig {
 
     public static final ModConfigSpec.BooleanValue BUILD_HINTS;
     public static final ModConfigSpec.BooleanValue BUILD_GHOSTS;
+    public static final ModConfigSpec.IntValue BUILD_SLOT_OFFSET_X;
+    public static final ModConfigSpec.IntValue BUILD_SLOT_OFFSET_Y;
+    public static final ModConfigSpec.DoubleValue BUILD_GIZMO_SENSITIVITY;
     public static final ModConfigSpec.ConfigValue<String> BUILD_LAST_TOOL;
     public static final ModConfigSpec.ConfigValue<String> BUILD_SET_BLOCK;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BUILD_OPTIONS;
@@ -85,6 +88,18 @@ public final class ClientConfig {
                 .comment("Show where Move and Clone would put blocks as translucent ghost blocks.")
                 .translation(key("buildTools.ghosts"))
                 .define("ghosts", true);
+        BUILD_SLOT_OFFSET_X = BUILDER
+                .comment("Moves the tool slot and its palette sideways, in pixels, from beside the hotbar. Negative is left.")
+                .translation(key("buildTools.slotOffsetX"))
+                .defineInRange("slotOffsetX", 0, -4096, 4096);
+        BUILD_SLOT_OFFSET_Y = BUILDER
+                .comment("Raises the tool slot and its palette, in pixels, from the bottom of the screen.")
+                .translation(key("buildTools.slotOffsetY"))
+                .defineInRange("slotOffsetY", 0, 0, 4096);
+        BUILD_GIZMO_SENSITIVITY = BUILDER
+                .comment("How far the destination moves per block the gizmo is dragged.")
+                .translation(key("buildTools.gizmoSensitivity"))
+                .defineInRange("gizmoSensitivity", 1.0, 0.1, 10.0);
         BUILD_LAST_TOOL = BUILDER
                 .comment("The build tool used last. Written by the game.")
                 .translation(key("buildTools.lastTool"))

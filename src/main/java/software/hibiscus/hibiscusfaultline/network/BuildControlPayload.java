@@ -12,7 +12,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import software.hibiscus.hibiscusfaultline.HibiscusFaultline;
 
-/** Client to server: pause, resume or stop the player's running operation. */
+/** Client to server: pause, resume or stop the player's running operation, or undo or redo the last one. */
 public record BuildControlPayload(Action action) implements CustomPacketPayload {
     public static final Type<BuildControlPayload> TYPE = new Type<>(HibiscusFaultline.id("build_control"));
     public static final StreamCodec<ByteBuf, BuildControlPayload> STREAM_CODEC = ByteBufCodecs.VAR_INT.map(
@@ -22,7 +22,9 @@ public record BuildControlPayload(Action action) implements CustomPacketPayload 
     public enum Action {
         PAUSE,
         RESUME,
-        STOP
+        STOP,
+        UNDO,
+        REDO
     }
 
     @Override

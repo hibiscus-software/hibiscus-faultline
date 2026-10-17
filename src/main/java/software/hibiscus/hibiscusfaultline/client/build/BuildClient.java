@@ -171,6 +171,8 @@ public final class BuildClient {
             // Ctrl+R and Ctrl+F only mean something in the slot; don't let presses from outside it pile up.
             drain(FaultlineKeys.ROTATE);
             drain(FaultlineKeys.FLIP);
+            drain(FaultlineKeys.UNDO);
+            drain(FaultlineKeys.REDO);
             return;
         }
 
@@ -200,6 +202,12 @@ public final class BuildClient {
         }
         while (FaultlineKeys.FLIP.consumeClick()) {
             SelectionInput.flip();
+        }
+        while (FaultlineKeys.UNDO.consumeClick()) {
+            BuildOperation.undo();
+        }
+        while (FaultlineKeys.REDO.consumeClick()) {
+            BuildOperation.redo();
         }
         if (minecraft.hasAltDown()) {
             minecraft.gui.setScreen(new PaletteScreen());

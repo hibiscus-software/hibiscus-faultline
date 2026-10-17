@@ -50,6 +50,24 @@ public final class FaultlineKeys {
             InputConstants.KEY_F,
             CATEGORY);
 
+    /** Undoes the last build operation. Ctrl+Z by default, only in the tool slot. */
+    public static final KeyMapping UNDO = new KeyMapping(
+            "key.hibiscusfaultline.build_undo",
+            KeyConflictContext.IN_GAME,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_Z,
+            CATEGORY);
+
+    /** Redoes the last undone build operation. Ctrl+Y by default, only in the tool slot. */
+    public static final KeyMapping REDO = new KeyMapping(
+            "key.hibiscusfaultline.build_redo",
+            KeyConflictContext.IN_GAME,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_Y,
+            CATEGORY);
+
     private FaultlineKeys() {}
 
     static void register(RegisterKeyMappingsEvent event) {
@@ -58,5 +76,7 @@ public final class FaultlineKeys {
         event.register(TOGGLE_BUILD_SLOT);
         event.register(ROTATE);
         event.register(FLIP);
+        event.register(UNDO);
+        event.register(REDO);
     }
 }

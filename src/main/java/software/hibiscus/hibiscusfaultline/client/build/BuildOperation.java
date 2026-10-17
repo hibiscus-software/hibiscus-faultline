@@ -110,6 +110,14 @@ final class BuildOperation {
         }
     }
 
+    static void undo() {
+        send(BuildControlPayload.Action.UNDO);
+    }
+
+    static void redo() {
+        send(BuildControlPayload.Action.REDO);
+    }
+
     /** Escape during an operation stops it. {@return whether there was one} */
     static boolean stop() {
         if (running()) {

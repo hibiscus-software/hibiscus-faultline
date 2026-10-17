@@ -43,6 +43,7 @@ public final class BuildServer {
         bus.addListener(BuildServer::onLoggedOut);
         bus.addListener(BuildServer::onServerTick);
         bus.addListener(BuildServer::onServerStopped);
+        bus.addListener(BuildCommands::register);
     }
 
     /**
@@ -77,6 +78,7 @@ public final class BuildServer {
         if (event.getEntity() instanceof ServerPlayer player) {
             BuildJobs.stop(player, null);
             LinkedContainers.forget(player);
+            BuildHistory.forget(player);
         }
     }
 
@@ -84,6 +86,7 @@ public final class BuildServer {
         PENDING_PREVIEWS.clear();
         BuildJobs.clear();
         LinkedContainers.clear();
+        BuildHistory.clear();
     }
 
     /** Sends the player their current tool access. Call again whenever a permission may have changed. */
@@ -107,6 +110,7 @@ public final class BuildServer {
     private static void onChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             BuildJobs.stop(player, Component.translatable("hibiscusfaultline.build.stopped.left"));
+            BuildHistory.forget(player);
             sendAccess(player);
             LinkedContainers.send(player);
         }

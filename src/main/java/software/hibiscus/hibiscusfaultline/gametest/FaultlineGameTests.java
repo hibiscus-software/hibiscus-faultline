@@ -60,6 +60,13 @@ public final class FaultlineGameTests {
         TESTS.put("move_takes_entities", BuildToolTests::moveTakesEntities);
         TESTS.put("move_rotates_states", BuildToolTests::moveRotatesStates);
         TESTS.put("stack_costs_per_copy", BuildToolTests::stackCostsPerCopy);
+        TESTS.put("undo_refunds_placed", BuildToolTests::undoRefundsPlaced);
+        TESTS.put("undo_pays_for_erased", BuildToolTests::undoPaysForErased);
+        TESTS.put("undo_needs_items", BuildToolTests::undoNeedsItems);
+        TESTS.put("undo_skips_changed", BuildToolTests::undoSkipsChanged);
+        TESTS.put("undo_creative_restores_free", BuildToolTests::undoCreativeRestoresFree);
+        TESTS.put("undo_keeps_operation_rules", BuildToolTests::undoKeepsOperationRules);
+        TESTS.put("undo_moves_back", BuildToolTests::undoMovesBack);
         TESTS.forEach((name, test) -> FUNCTIONS.register(name, () -> test));
     }
 

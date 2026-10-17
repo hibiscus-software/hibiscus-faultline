@@ -61,6 +61,13 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
   the gap, in the direction you look when adding the first; each copy costs like Clone. After a Move the selection
   follows the blocks.
 - `buildTools.maxStack` and `buildTools.creativeCloneContents` server options.
+- Undo and redo (Ctrl+Z / Ctrl+Y in the tool slot). Survival undo refunds what was placed and puts back what was
+  erased only if you can pay for it again; creative undo just restores. Undo only touches positions still as the
+  operation left them, fires the same protection events, and follows the rules the operation ran under. Kept for the
+  session: `buildTools.undoDepth`, `undoDepthCreative` and `undoMaxBlocks`.
+- Operator commands `/faultline build cancel <player>`, `/faultline build undo <player>` and
+  `/faultline build limits [player]`.
+- Client options to move the tool slot and set the gizmo's sensitivity.
 - Gametests for Erase, Set, Move, Clone and Stack (`./gradlew runGameTestServer`).
 - `buildTools.enabled` server option and `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`,
   `.max_volume` and `.bypass_protection` permission nodes.

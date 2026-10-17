@@ -325,7 +325,7 @@ final class BuildHud {
     static int slotX(int guiWidth) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        int x = guiWidth / 2 + 91 + GAP;
+        int x = guiWidth / 2 + 91 + GAP + ClientConfig.BUILD_SLOT_OFFSET_X.get();
         if (player != null) {
             boolean offhandOnRight = player.getMainArm().getOpposite() == HumanoidArm.RIGHT;
             if (offhandOnRight && !player.getOffhandItem().isEmpty()) {
@@ -338,6 +338,6 @@ final class BuildHud {
     }
 
     static int slotY(int guiHeight) {
-        return guiHeight - SLOT_SIZE;
+        return guiHeight - SLOT_SIZE - ClientConfig.BUILD_SLOT_OFFSET_Y.get();
     }
 }

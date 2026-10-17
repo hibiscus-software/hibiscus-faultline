@@ -21,6 +21,7 @@ import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildStack;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.build.BuildTransform;
+import software.hibiscus.hibiscusfaultline.config.ClientConfig;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import org.jspecify.annotations.Nullable;
 
@@ -283,8 +284,9 @@ final class SelectionInput {
         if (hit == null) {
             return;
         }
-        int dx = (int) Math.round(hit.x - dragStart.x);
-        int dz = (int) Math.round(hit.z - dragStart.z);
+        double sensitivity = ClientConfig.BUILD_GIZMO_SENSITIVITY.get();
+        int dx = (int) Math.round((hit.x - dragStart.x) * sensitivity);
+        int dz = (int) Math.round((hit.z - dragStart.z) * sensitivity);
         Selection.setTransform(Selection.transform().withOffset(dragStartOffset.offset(dx, 0, dz)));
     }
 

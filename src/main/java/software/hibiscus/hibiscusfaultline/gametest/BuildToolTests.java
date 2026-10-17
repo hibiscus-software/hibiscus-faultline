@@ -47,6 +47,7 @@ import software.hibiscus.hibiscusfaultline.build.BuildStack;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.build.BuildTransform;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
+import software.hibiscus.hibiscusfaultline.server.BuildHistory;
 import software.hibiscus.hibiscusfaultline.server.BuildJobs;
 import software.hibiscus.hibiscusfaultline.server.BuildValidator;
 import software.hibiscus.hibiscusfaultline.server.MiningCosts;
@@ -457,6 +458,120 @@ final class BuildToolTests {
                 .thenWaitUntil(() -> assertRow(helper, Blocks.STONE, 4))
                 .thenExecute(() -> {
                     helper.assertValueEqual(player.getInventory().countItem(Items.STONE), 0, "3 copies of 1 block cost 3 stone");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void undoRefundsPlaced(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.DIRT, 3));
+        start(helper, player, request(helper, BuildTool.SET, 0, 0, 2, 0, Blocks.DIRT));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(BuildJobs.get(player) == null, "the job should have finished"))
+                .thenExecute(() -> {
+                    assertRow(helper, Blocks.DIRT, 3);
+                    BuildHistory.undo(player);
+                    assertRow(helper, Blocks.AIR, 3);
+                    helper.assertValueEqual(player.getInventory().countItem(Items.DIRT), 3, "dirt refunded");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void undoPaysForErased(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        row(helper, Blocks.DIRT, 2);
+        start(helper, player, request(helper, BuildTool.ERASE, 0, 0, 1, 0, null));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(BuildJobs.get(player) == null, "the job should have finished"))
+                .thenExecute(() -> {
+                    helper.assertValueEqual(player.getInventory().countItem(Items.DIRT), 2, "dirt from erasing");
+                    BuildHistory.undo(player);
+                    assertRow(helper, Blocks.DIRT, 2);
+                    helper.assertValueEqual(player.getInventory().countItem(Items.DIRT), 0, "putting the dirt back spends it again");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    /** Stone erased with a pickaxe drops cobblestone, so without stone items it can't come back. */
+    static void undoNeedsItems(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+        row(helper, Blocks.STONE, 2);
+        start(helper, player, request(helper, BuildTool.ERASE, 0, 0, 1, 0, null));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(BuildJobs.get(player) == null, "the job should have finished"))
+                .thenExecute(() -> {
+                    BuildHistory.undo(player);
+                    assertRow(helper, Blocks.AIR, 2);
+                    helper.assertValueEqual(player.getInventory().countItem(Items.COBBLESTONE), 2, "cobblestone untouched");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void undoSkipsChanged(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.DIRT, 2));
+        start(helper, player, request(helper, BuildTool.SET, 0, 0, 1, 0, Blocks.DIRT));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(BuildJobs.get(player) == null, "the job should have finished"))
+                .thenExecute(() -> {
+                    helper.setBlock(1, 1, 0, Blocks.GOLD_BLOCK);
+                    BuildHistory.undo(player);
+                    helper.assertBlockPresent(Blocks.AIR, new BlockPos(0, 1, 0));
+                    helper.assertBlockPresent(Blocks.GOLD_BLOCK, new BlockPos(1, 1, 0));
+                    helper.assertValueEqual(player.getInventory().countItem(Items.DIRT), 1, "only the untouched block is refunded");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void undoCreativeRestoresFree(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.CREATIVE);
+        row(helper, Blocks.DIRT, 2);
+        start(helper, player, request(helper, BuildTool.ERASE, 0, 0, 1, 0, null));
+        assertRow(helper, Blocks.AIR, 2);
+        BuildHistory.undo(player);
+        assertRow(helper, Blocks.DIRT, 2);
+        helper.assertTrue(player.getInventory().isEmpty(), "creative undo needs no items");
+        remove(player);
+        helper.succeed();
+    }
+
+    /** A survival Set undone after switching to creative still refunds, by the rules it ran under. */
+    static void undoKeepsOperationRules(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.DIRT, 2));
+        start(helper, player, request(helper, BuildTool.SET, 0, 0, 1, 0, Blocks.DIRT));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(BuildJobs.get(player) == null, "the job should have finished"))
+                .thenExecute(() -> {
+                    player.setGameMode(GameType.CREATIVE);
+                    BuildHistory.undo(player);
+                    assertRow(helper, Blocks.AIR, 2);
+                    helper.assertValueEqual(player.getInventory().countItem(Items.DIRT), 2, "survival refund in creative");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void undoMovesBack(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        helper.setBlock(0, 1, 0, Blocks.CHEST);
+        chest(helper, new BlockPos(0, 1, 0)).setItem(0, new ItemStack(Items.DIAMOND, 4));
+        start(helper, player, transfer(helper, BuildTool.MOVE, 0, 0, 0, 0, new BlockPos(2, 0, 0)));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.CHEST, new BlockPos(2, 1, 0)))
+                .thenExecute(() -> {
+                    chest(helper, new BlockPos(2, 1, 0)).setItem(1, new ItemStack(Items.EMERALD, 2));
+                    Component result = BuildHistory.undo(player);
+                    helper.assertTrue(helper.getBlockState(new BlockPos(2, 1, 0)).isAir(), "undo should take the chest back: " + result.getString());
+                    ChestBlockEntity back = chest(helper, new BlockPos(0, 1, 0));
+                    helper.assertValueEqual(back.getItem(0).getCount(), 4, "diamonds moved back");
+                    helper.assertValueEqual(back.getItem(1).getCount(), 2, "what was added since comes along");
                     remove(player);
                 })
                 .thenSucceed();

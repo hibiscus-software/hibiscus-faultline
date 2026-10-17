@@ -111,6 +111,9 @@ public final class ServerConfig {
     public static final ModConfigSpec.EnumValue<Overflow> BUILD_OVERFLOW;
     public static final ModConfigSpec.IntValue BUILD_MAX_STACK;
     public static final ModConfigSpec.BooleanValue BUILD_CREATIVE_CLONE_CONTENTS;
+    public static final ModConfigSpec.IntValue BUILD_UNDO_DEPTH;
+    public static final ModConfigSpec.IntValue BUILD_UNDO_DEPTH_CREATIVE;
+    public static final ModConfigSpec.IntValue BUILD_UNDO_MAX_BLOCKS;
 
     static {
         BUILDER.comment("Which modes players can pick.").translation(key("modes")).push("modes");
@@ -183,6 +186,18 @@ public final class ServerConfig {
                 .comment("Let Clone and Stack copy block entity contents (chest items, machine state) in creative. Off by default, so a creative-built chest can't be carried into survival full.")
                 .translation(key("buildTools.creativeCloneContents"))
                 .define("creativeCloneContents", false);
+        BUILD_UNDO_DEPTH = BUILDER
+                .comment("How many survival operations each player can undo.")
+                .translation(key("buildTools.undoDepth"))
+                .defineInRange("undoDepth", 10, 0, 1000);
+        BUILD_UNDO_DEPTH_CREATIVE = BUILDER
+                .comment("How many creative operations each player can undo.")
+                .translation(key("buildTools.undoDepthCreative"))
+                .defineInRange("undoDepthCreative", 50, 0, 1000);
+        BUILD_UNDO_MAX_BLOCKS = BUILDER
+                .comment("Most changed blocks kept for undo per player. The oldest operations are forgotten past it, and an operation bigger than this can't be undone.")
+                .translation(key("buildTools.undoMaxBlocks"))
+                .defineInRange("undoMaxBlocks", 262144, 0, 16_777_216);
         BUILDER.pop();
     }
 
@@ -263,6 +278,18 @@ public final class ServerConfig {
 
     public static boolean buildCreativeCloneContents() {
         return read(BUILD_CREATIVE_CLONE_CONTENTS);
+    }
+
+    public static int buildUndoDepth() {
+        return read(BUILD_UNDO_DEPTH);
+    }
+
+    public static int buildUndoDepthCreative() {
+        return read(BUILD_UNDO_DEPTH_CREATIVE);
+    }
+
+    public static int buildUndoMaxBlocks() {
+        return read(BUILD_UNDO_MAX_BLOCKS);
     }
 
     public static int buildGhostPreviewLimit() {

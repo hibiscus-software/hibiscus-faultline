@@ -14,6 +14,7 @@ import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
+import software.hibiscus.hibiscusfaultline.build.BuildPermissions;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.network.BuildControlPayload;
@@ -65,6 +66,14 @@ public final class BuildJobs {
 
     public static void control(ServerPlayer player, BuildControlPayload.Action action) {
         BuildJob job = JOBS.get(player.getUUID());
+        if (action == BuildControlPayload.Action.UNDO || action == BuildControlPayload.Action.REDO) {
+            if (job != null) {
+                player.sendSystemMessage(Component.translatable("hibiscusfaultline.build.problem.busy"), true);
+            } else if (BuildPermissions.canUse(player)) {
+                player.sendSystemMessage(action == BuildControlPayload.Action.UNDO ? BuildHistory.undo(player) : BuildHistory.redo(player), true);
+            }
+            return;
+        }
         if (job == null) {
             return;
         }
@@ -72,6 +81,8 @@ public final class BuildJobs {
             case PAUSE -> job.pause();
             case RESUME -> job.resume();
             case STOP -> stop(player, Component.translatable("hibiscusfaultline.build.stopped.cancelled"));
+            default -> {
+            }
         }
     }
 

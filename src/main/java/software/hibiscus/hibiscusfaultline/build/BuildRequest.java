@@ -22,9 +22,10 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * @param block the block Set fills with
  * @param mask  the block Erase's Mask and Set's Replace are limited to
+ * @param stack how Stack repeats the selection
  */
 public record BuildRequest(BuildTool tool, int options, BuildBox box, BuildTransform transform,
-                           Optional<Holder<Block>> block, Optional<Holder<Block>> mask) {
+                           Optional<Holder<Block>> block, Optional<Holder<Block>> mask, BuildStack stack) {
     public static final StreamCodec<ByteBuf, BuildTool> TOOL_CODEC = ByteBufCodecs.VAR_INT.map(BuildTool::byIndex, BuildTool::ordinal);
     private static final StreamCodec<RegistryFriendlyByteBuf, Optional<Holder<Block>>> BLOCK_CODEC =
             ByteBufCodecs.optional(ByteBufCodecs.holderRegistry(Registries.BLOCK));
@@ -35,7 +36,14 @@ public record BuildRequest(BuildTool tool, int options, BuildBox box, BuildTrans
             BuildTransform.STREAM_CODEC, BuildRequest::transform,
             BLOCK_CODEC, BuildRequest::block,
             BLOCK_CODEC, BuildRequest::mask,
+            BuildStack.STREAM_CODEC, BuildRequest::stack,
             BuildRequest::new);
+
+    /** A request with no Stack settings, for every tool but Stack. */
+    public BuildRequest(BuildTool tool, int options, BuildBox box, BuildTransform transform,
+                        Optional<Holder<Block>> block, Optional<Holder<Block>> mask) {
+        this(tool, options, box, transform, block, mask, BuildStack.NONE);
+    }
 
     public boolean has(BuildOption option) {
         return tool.options().contains(option) && (options & (1 << option.ordinal())) != 0;
@@ -54,6 +62,14 @@ public record BuildRequest(BuildTool tool, int options, BuildBox box, BuildTrans
 
     /** {@return the box the operation changes besides the source} The source itself for tools without a destination. */
     public BuildBox target() {
+        if (tool == BuildTool.STACK) {
+            return stack.span(box);
+        }
         return hasDestination() ? transform.destination(box) : box;
+    }
+
+    /** {@return how many blocks the operation covers, which the volume limit applies to} Every copy counts for Stack. */
+    public long volume() {
+        return tool == BuildTool.STACK ? box.volume() * Math.max(1, stack.count()) : box.volume();
     }
 }

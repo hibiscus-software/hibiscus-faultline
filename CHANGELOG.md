@@ -52,7 +52,16 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 - Creative: no materials, no drops (contents are deleted with their block), no hunger and no break time.
 - `buildTools.blocksPerTick`, `eraseTimeMultiplier`, `eraseParallel`, `eraseWithoutTool`, `maxLinkedContainers`,
   `linkRange` and `overflow` server options.
-- Gametests for Erase and Set (`./gradlew runGameTestServer`).
+- Move, Clone and Stack run. Move lifts the selection and puts it down at the destination: blocks keep their block
+  entities (a chest keeps its items, a machine its state), nothing drops and lifted blocks cost no hunger or time;
+  occupied destinations are broken first like Erase, or with Keep Existing the block that would land there stays put.
+  Move Entities brings item frames, armour stands, paintings and mobs (any non-player entity in creative) along, turned
+  like the blocks. Clone copies block states only, one matching item per block, so a chest arrives empty; Copy Air and
+  Copy Entities (creative) are options. Stack repeats the selection: scroll for the number of copies, Shift + scroll for
+  the gap, in the direction you look when adding the first; each copy costs like Clone. After a Move the selection
+  follows the blocks.
+- `buildTools.maxStack` and `buildTools.creativeCloneContents` server options.
+- Gametests for Erase, Set, Move, Clone and Stack (`./gradlew runGameTestServer`).
 - `buildTools.enabled` server option and `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`,
   `.max_volume` and `.bypass_protection` permission nodes.
 

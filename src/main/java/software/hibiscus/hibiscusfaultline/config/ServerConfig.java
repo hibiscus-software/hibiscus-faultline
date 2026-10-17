@@ -109,6 +109,8 @@ public final class ServerConfig {
     public static final ModConfigSpec.IntValue BUILD_MAX_LINKED_CONTAINERS;
     public static final ModConfigSpec.IntValue BUILD_LINK_RANGE;
     public static final ModConfigSpec.EnumValue<Overflow> BUILD_OVERFLOW;
+    public static final ModConfigSpec.IntValue BUILD_MAX_STACK;
+    public static final ModConfigSpec.BooleanValue BUILD_CREATIVE_CLONE_CONTENTS;
 
     static {
         BUILDER.comment("Which modes players can pick.").translation(key("modes")).push("modes");
@@ -173,6 +175,14 @@ public final class ServerConfig {
                 .comment("What happens to returned items that fit neither in the inventory nor in linked containers: drop them at the player's feet, or stop the operation.")
                 .translation(key("buildTools.overflow"))
                 .defineEnum("overflow", Overflow.DROP);
+        BUILD_MAX_STACK = BUILDER
+                .comment("Most copies one Stack can make.")
+                .translation(key("buildTools.maxStack"))
+                .defineInRange("maxStack", 64, 1, 1024);
+        BUILD_CREATIVE_CLONE_CONTENTS = BUILDER
+                .comment("Let Clone and Stack copy block entity contents (chest items, machine state) in creative. Off by default, so a creative-built chest can't be carried into survival full.")
+                .translation(key("buildTools.creativeCloneContents"))
+                .define("creativeCloneContents", false);
         BUILDER.pop();
     }
 
@@ -245,6 +255,14 @@ public final class ServerConfig {
 
     public static Overflow buildOverflow() {
         return read(BUILD_OVERFLOW);
+    }
+
+    public static int buildMaxStack() {
+        return read(BUILD_MAX_STACK);
+    }
+
+    public static boolean buildCreativeCloneContents() {
+        return read(BUILD_CREATIVE_CLONE_CONTENTS);
     }
 
     public static int buildGhostPreviewLimit() {

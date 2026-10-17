@@ -52,6 +52,14 @@ public final class FaultlineGameTests {
         TESTS.put("creative_set_free", BuildToolTests::creativeSetFree);
         TESTS.put("creative_erase_instant", BuildToolTests::creativeEraseInstant);
         TESTS.put("limits_volume", BuildToolTests::limitsVolume);
+        TESTS.put("clone_costs_one_per_block", BuildToolTests::cloneCostsOnePerBlock);
+        TESTS.put("clone_refuses_when_short", BuildToolTests::cloneRefusesWhenShort);
+        TESTS.put("clone_partial_bottom_up", BuildToolTests::clonePartialBottomUp);
+        TESTS.put("clone_chest_arrives_empty", BuildToolTests::cloneChestArrivesEmpty);
+        TESTS.put("move_chest_keeps_contents", BuildToolTests::moveChestKeepsContents);
+        TESTS.put("move_takes_entities", BuildToolTests::moveTakesEntities);
+        TESTS.put("move_rotates_states", BuildToolTests::moveRotatesStates);
+        TESTS.put("stack_costs_per_copy", BuildToolTests::stackCostsPerCopy);
         TESTS.forEach((name, test) -> FUNCTIONS.register(name, () -> test));
     }
 

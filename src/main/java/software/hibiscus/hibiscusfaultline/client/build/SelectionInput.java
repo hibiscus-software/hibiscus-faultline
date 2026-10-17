@@ -18,6 +18,8 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import software.hibiscus.hibiscusfaultline.build.BuildBox;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
+import software.hibiscus.hibiscusfaultline.build.BuildStack;
+import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.build.BuildTransform;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import org.jspecify.annotations.Nullable;
@@ -167,6 +169,10 @@ final class SelectionInput {
             return;
         }
         int amount = up ? 1 : -1;
+        if (BuildClient.tool() == BuildTool.STACK) {
+            scrollStack(player, amount);
+            return;
+        }
         if (Selection.pending()) {
             Vec3 look = player.getViewVector(1.0F);
             Direction direction;
@@ -181,6 +187,23 @@ final class SelectionInput {
         } else if (hover.kind() == Kind.FACE && hover.face() != null) {
             Selection.moveFace(hover.face(), amount);
         }
+    }
+
+    /**
+     * Stack: the wheel sets how many copies, Shift + wheel the gap between them. The direction is the way the player
+     * looks when the first copy is added, and is free again once the count is back to zero.
+     */
+    private static void scrollStack(LocalPlayer player, int amount) {
+        BuildStack stack = Selection.stack();
+        if (Minecraft.getInstance().hasShiftDown()) {
+            if (stack.count() > 0) {
+                Selection.setStack(new BuildStack(stack.direction(), stack.count(), stack.gap() + amount));
+            }
+            return;
+        }
+        Direction direction = stack.count() == 0 ? Direction.getApproximateNearest(player.getViewVector(1.0F)) : stack.direction();
+        int count = Math.clamp(stack.count() + amount, 0, ServerConfig.buildMaxStack());
+        Selection.setStack(count == 0 ? BuildStack.NONE : new BuildStack(direction, count, stack.gap()));
     }
 
     static void rotate() {
@@ -198,6 +221,10 @@ final class SelectionInput {
 
     /** Steps back once: cancels a destination, then clears the selection. {@return whether there was anything to undo} */
     static boolean back() {
+        if (BuildClient.tool() == BuildTool.STACK && Selection.stack().count() > 0) {
+            Selection.setStack(BuildStack.NONE);
+            return true;
+        }
         if (Selection.pending()) {
             Selection.resetDestination();
             return true;

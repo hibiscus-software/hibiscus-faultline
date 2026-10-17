@@ -76,6 +76,9 @@ final class SelectionRenderer {
         }
 
         BuildBox destination = Selection.destination();
+        if (tool == BuildTool.STACK && Selection.stack().count() > 0) {
+            destination = Selection.stack().span(box);
+        }
         Direction face = hover.kind() == SelectionInput.Kind.FACE ? hover.face() : null;
         if (destination != null) {
             // The source fades back while its copy is being placed.

@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import software.hibiscus.hibiscusfaultline.build.BuildBox;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
@@ -38,6 +39,8 @@ import org.jspecify.annotations.Nullable;
  */
 final class BuildOperation {
     private static @Nullable BuildProgressPayload progress;
+    /** Where the selection goes once a confirmed Move finishes. */
+    private static @Nullable BuildBox moveTarget;
     private static List<BlockPos> linked = List.of();
     private static final Map<BuildTool, Holder<Block>> MASKS = new EnumMap<>(BuildTool.class);
 
@@ -58,6 +61,10 @@ final class BuildOperation {
 
     static void receive(BuildProgressPayload payload) {
         progress = payload.state() == BuildProgressPayload.FINISHED ? null : payload;
+        if (progress == null && moveTarget != null) {
+            Selection.replaceBox(moveTarget);
+            moveTarget = null;
+        }
     }
 
     static List<BlockPos> linked() {
@@ -98,6 +105,7 @@ final class BuildOperation {
         BuildTool tool = BuildClient.tool();
         BuildRequest request = Selection.request(tool, BuildClient.optionMask(tool));
         if (request != null) {
+            moveTarget = tool == BuildTool.MOVE && Selection.pending() ? Selection.destination() : null;
             ClientPacketDistributor.sendToServer(new BuildConfirmPayload(request));
         }
     }
@@ -161,6 +169,7 @@ final class BuildOperation {
 
     static void reset() {
         progress = null;
+        moveTarget = null;
         linked = List.of();
         MASKS.clear();
     }

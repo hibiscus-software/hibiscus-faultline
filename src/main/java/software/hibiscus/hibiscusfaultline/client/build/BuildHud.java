@@ -116,6 +116,14 @@ final class BuildHud {
             hints.add(hint(MouseHint.LEFT, Selection.first() == null ? "first_point" : "second_point"));
             return hints;
         }
+        if (BuildClient.tool() == BuildTool.STACK) {
+            hints.add(hint(MouseHint.SCROLL, "scroll_count"));
+            if (Selection.stack().count() > 0) {
+                hints.add(hint(MouseHint.SCROLL, "scroll_gap"));
+                hints.add(hint(MouseHint.RIGHT, "confirm"));
+            }
+            return hints;
+        }
         boolean destinationTool = Selection.hasDestination(BuildClient.tool());
         if (hovered == SelectionInput.Kind.GIZMO || SelectionInput.dragging()) {
             hints.add(hint(MouseHint.LEFT, "drag"));
@@ -148,7 +156,10 @@ final class BuildHud {
         BuildBox box = Selection.box();
         Component label;
         int[] values;
-        if (Selection.pending()) {
+        if (BuildClient.tool() == BuildTool.STACK && Selection.stack().count() > 0) {
+            label = Component.translatable("hibiscusfaultline.build.readout.stack");
+            values = new int[] {Selection.stack().count(), Selection.stack().gap()};
+        } else if (Selection.pending()) {
             BlockPos offset = Selection.transform().offset();
             label = Component.translatable("hibiscusfaultline.build.readout.offset");
             values = new int[] {offset.getX(), offset.getY(), offset.getZ()};
@@ -174,7 +185,7 @@ final class BuildHud {
         graphics.fill(x - 2, y - 2, x + width + 2, y + font.lineHeight, FaultlineTheme.backdrop());
         graphics.text(font, label, x, y, FaultlineTheme.readoutLabel(), true);
         x += font.width(label);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < values.length; i++) {
             String text = " " + values[i];
             graphics.text(font, text, x, y, colours[i], true);
             x += font.width(text);

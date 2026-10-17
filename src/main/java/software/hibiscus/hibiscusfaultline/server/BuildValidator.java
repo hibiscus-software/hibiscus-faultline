@@ -6,29 +6,19 @@
 
 package software.hibiscus.hibiscusfaultline.server;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongList;
-import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.server.permission.PermissionAPI;
 import software.hibiscus.hibiscusfaultline.build.BuildBox;
-import software.hibiscus.hibiscusfaultline.build.BuildMaterials;
-import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildPermissions;
 import software.hibiscus.hibiscusfaultline.build.BuildPreview;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
-import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import software.hibiscus.hibiscusfaultline.selection.FaultlineTags;
 import org.jspecify.annotations.Nullable;
@@ -46,31 +36,27 @@ public final class BuildValidator {
 
     public static BuildPreview preview(ServerPlayer player, int requestId, BuildRequest request) {
         boolean creative = player.isCreative();
-        long volume = request.box().volume();
+        long volume = request.volume();
         Optional<Component> limits = checkLimits(player, request, creative);
         if (limits.isPresent()) {
             return problem(requestId, volume, limits.get());
         }
-        switch (request.tool()) {
-            case ERASE -> {
-                return BuildPlan.erase(player, request, creative).preview(requestId, volume);
-            }
-            case SET -> {
-                return BuildPlan.set(player, request, creative).preview(requestId, volume);
-            }
-            case MOVE, CLONE -> {
-                Scan scan = new Scan(ServerConfig.buildGhostPreviewLimit());
-                // Until a destination is placed there is nothing to move onto, only the limits above to check.
-                if (!request.transform().isIdentity()) {
-                    scanTransfer(player, player.level(), request, creative, scan);
-                }
-                return scan.finish(requestId, volume, player, creative, request.has(BuildOption.PARTIAL));
-            }
-            default -> {
-                // Stack's geometry depends on its count and gap, which arrive with the tool itself.
-                return problem(requestId, volume, null);
-            }
-        }
+        return plan(player, request, creative).map(plan -> plan.preview(requestId, volume))
+                .orElseGet(() -> problem(requestId, volume, null));
+    }
+
+    /**
+     * {@return the plan for an operation, or nothing while there's nothing to plan yet} Move and Clone need a placed
+     * destination and Stack at least one copy before they have one.
+     */
+    public static Optional<BuildPlan> plan(ServerPlayer player, BuildRequest request, boolean creative) {
+        return Optional.ofNullable(switch (request.tool()) {
+            case ERASE -> BuildPlan.erase(player, request, creative);
+            case SET -> BuildPlan.set(player, request, creative);
+            case MOVE -> request.transform().isIdentity() ? null : BuildPlan.move(player, request, creative);
+            case CLONE -> request.transform().isIdentity() ? null : BuildPlan.copy(player, request, creative);
+            case STACK -> request.stack().count() == 0 ? null : BuildPlan.copy(player, request, creative);
+        });
     }
 
     /**
@@ -80,9 +66,12 @@ public final class BuildValidator {
     public static Optional<Component> checkLimits(ServerPlayer player, BuildRequest request, boolean creative) {
         BuildBox box = request.box();
         BuildBox target = request.target();
-        long volume = box.volume();
+        long volume = request.volume();
         if (player.isSpectator() || !BuildPermissions.canUse(player, request.tool())) {
             return Optional.of(Component.translatable("hibiscusfaultline.build.problem.no_permission"));
+        }
+        if (request.stack().count() > ServerConfig.buildMaxStack()) {
+            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.too_many", ServerConfig.buildMaxStack()));
         }
         long limit = maxVolume(player, creative);
         if (volume > limit) {
@@ -111,105 +100,7 @@ public final class BuildValidator {
         return state.getDestroySpeed(level, pos) < 0 || state.is(FaultlineTags.BUILD_IMMOVABLE);
     }
 
-    private static void scanTransfer(ServerPlayer player, ServerLevel level, BuildRequest request, boolean creative, Scan scan) {
-        boolean move = request.tool() == BuildTool.MOVE;
-        boolean takeAir = request.has(move ? BuildOption.MOVE_AIR : BuildOption.COPY_AIR);
-        boolean keepExisting = request.has(BuildOption.KEEP_EXISTING);
-        BuildBox box = request.box();
-        for (BlockPos pos : box.positions()) {
-            BlockState state = level.getBlockState(pos);
-            if (state.isAir() && !takeAir) {
-                continue;
-            }
-            BlockPos dest = request.transform().apply(box, pos);
-            if (!BuildPlan.mayEdit(player, level, dest) || (move && (!BuildPlan.mayEdit(player, level, pos) || isImmovable(level, pos, state)))) {
-                scan.skip(dest);
-                continue;
-            }
-            // A Move into its own footprint lands on blocks that are moving away themselves.
-            BlockState destState = level.getBlockState(dest);
-            boolean occupied = !destState.isAir() && !(move && box.contains(dest));
-            if (occupied && keepExisting) {
-                continue;
-            }
-            if (occupied && isImmovable(level, dest, destState)) {
-                scan.skip(dest);
-                continue;
-            }
-            if (!move && !creative) {
-                BuildMaterials.Cost cost = BuildMaterials.costOf(state, level, pos, player);
-                if (cost instanceof BuildMaterials.Cost.Of(Item item)) {
-                    scan.cost(dest, item);
-                } else if (cost == BuildMaterials.Cost.NONE) {
-                    scan.skip(dest);
-                }
-            }
-        }
-    }
-
     private static BuildPreview problem(int requestId, long volume, @Nullable Component message) {
         return new BuildPreview(requestId, Optional.ofNullable(message), volume, List.of(), new long[0]);
     }
-
-    /** What a scan found: positions to skip, and every block that has to be paid for, with its destination. */
-    private static final class Scan {
-        private final int skipLimit;
-        private final LongList skipped = new LongArrayList();
-        private final List<Paid> paid = new ArrayList<>();
-        private final Object2IntMap<Item> needed = new Object2IntLinkedOpenHashMap<>();
-
-        Scan(int skipLimit) {
-            this.skipLimit = skipLimit;
-        }
-
-        void skip(BlockPos pos) {
-            if (skipped.size() < skipLimit) {
-                skipped.add(pos.asLong());
-            }
-        }
-
-        void cost(BlockPos dest, Item item) {
-            paid.add(new Paid(dest.immutable(), item));
-            needed.mergeInt(item, 1, Integer::sum);
-        }
-
-        BuildPreview finish(int requestId, long volume, ServerPlayer player, boolean creative, boolean partial) {
-            if (creative || needed.isEmpty()) {
-                return new BuildPreview(requestId, Optional.empty(), volume, List.of(), skipped.toLongArray());
-            }
-            BuildSources sources = new BuildSources(player);
-            Object2IntMap<Item> have = new Object2IntLinkedOpenHashMap<>();
-            for (Item item : needed.keySet()) {
-                have.put(item, sources.count(item));
-            }
-            List<BuildPreview.MaterialLine> lines = new ArrayList<>();
-            boolean isShort = false;
-            for (Object2IntMap.Entry<Item> entry : needed.object2IntEntrySet()) {
-                int owned = have.getInt(entry.getKey());
-                lines.add(new BuildPreview.MaterialLine(entry.getKey().builtInRegistryHolder(), entry.getIntValue(), owned));
-                isShort |= owned < entry.getIntValue();
-            }
-            lines.sort(Comparator.comparingInt(BuildPreview.MaterialLine::needed).reversed());
-
-            Optional<Component> problem = Optional.empty();
-            if (isShort && partial) {
-                // Partial placement fills from the bottom layer up; whatever the materials run out before is skipped.
-                paid.sort(Comparator.comparingInt(entry -> entry.dest().getY()));
-                Object2IntMap<Item> left = new Object2IntLinkedOpenHashMap<>(have);
-                for (Paid entry : paid) {
-                    int remaining = left.getInt(entry.item());
-                    if (remaining > 0) {
-                        left.put(entry.item(), remaining - 1);
-                    } else {
-                        skip(entry.dest());
-                    }
-                }
-            } else if (isShort) {
-                problem = Optional.of(Component.translatable("hibiscusfaultline.build.problem.short"));
-            }
-            return new BuildPreview(requestId, problem, volume, lines, skipped.toLongArray());
-        }
-    }
-
-    private record Paid(BlockPos dest, Item item) {}
 }

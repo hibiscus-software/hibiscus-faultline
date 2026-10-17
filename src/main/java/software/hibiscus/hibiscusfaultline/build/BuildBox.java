@@ -44,6 +44,14 @@ public record BuildBox(BlockPos min, BlockPos max) {
         return max.getZ() - min.getZ() + 1;
     }
 
+    public int sizeAlong(Direction.Axis axis) {
+        return switch (axis) {
+            case X -> sizeX();
+            case Y -> sizeY();
+            case Z -> sizeZ();
+        };
+    }
+
     public long volume() {
         return (long) sizeX() * sizeY() * sizeZ();
     }

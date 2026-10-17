@@ -113,13 +113,18 @@ final class PreviewSync {
         return Selection.request(tool, BuildClient.optionMask(tool));
     }
 
-    /** The blocks a Move or Clone would place, read from the client's own world. Empty above the ghost limit. */
+    /** The blocks a Move, Clone or Stack would place, read from the client's own world. Empty above the ghost limit. */
     private static List<Ghost> buildGhosts(BuildRequest request) {
         ClientLevel level = Minecraft.getInstance().level;
         BuildTransform transform = request.transform();
         BuildBox box = request.box();
-        if (level == null || !ClientConfig.BUILD_GHOSTS.get() || !request.hasDestination() || transform.isIdentity()
-                || box.volume() > ServerConfig.buildGhostPreviewLimit()) {
+        if (level == null || !ClientConfig.BUILD_GHOSTS.get() || request.volume() > ServerConfig.buildGhostPreviewLimit()) {
+            return List.of();
+        }
+        if (request.tool() == BuildTool.STACK) {
+            return stackGhosts(level, request);
+        }
+        if (!request.hasDestination() || transform.isIdentity()) {
             return List.of();
         }
         boolean move = request.tool() == BuildTool.MOVE;
@@ -135,6 +140,23 @@ final class PreviewSync {
                 continue;
             }
             result.add(new Ghost(dest, transform.apply(state)));
+        }
+        return result;
+    }
+
+    private static List<Ghost> stackGhosts(ClientLevel level, BuildRequest request) {
+        BuildBox box = request.box();
+        boolean keepExisting = request.has(BuildOption.KEEP_EXISTING);
+        List<Ghost> result = new ArrayList<>();
+        for (int copy = 1; copy <= request.stack().count(); copy++) {
+            BlockPos offset = request.stack().offset(box, copy);
+            for (BlockPos pos : box.positions()) {
+                BlockState state = level.getBlockState(pos);
+                BlockPos dest = pos.offset(offset);
+                if (!state.isAir() && !(keepExisting && !level.getBlockState(dest).isAir())) {
+                    result.add(new Ghost(dest.immutable(), state));
+                }
+            }
         }
         return result;
     }

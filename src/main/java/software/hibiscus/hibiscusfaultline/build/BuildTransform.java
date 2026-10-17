@@ -14,6 +14,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Where a Move, Clone or Stack puts the selection: mirrored within the box first, then turned clockwise around Y in
@@ -91,6 +92,52 @@ public record BuildTransform(BlockPos offset, int rotation, boolean flipX, boole
             sizeZ = swap;
         }
         return source.min().offset(offset).offset(x, y, z);
+    }
+
+    /**
+     * {@return where a point (an entity's position) in {@code source} lands} The continuous version of
+     * {@link #apply(BuildBox, BlockPos)}.
+     */
+    public Vec3 apply(BuildBox source, Vec3 point) {
+        double x = point.x - source.min().getX();
+        double y = point.y - source.min().getY();
+        double z = point.z - source.min().getZ();
+        double sizeX = source.sizeX();
+        double sizeZ = source.sizeZ();
+        if (flipX) {
+            x = sizeX - x;
+        }
+        if (flipZ) {
+            z = sizeZ - z;
+        }
+        for (int i = 0; i < rotation; i++) {
+            double turnedX = sizeZ - z;
+            z = x;
+            x = turnedX;
+            double swap = sizeX;
+            sizeX = sizeZ;
+            sizeZ = swap;
+        }
+        BlockPos base = source.min().offset(offset);
+        return new Vec3(base.getX() + x, base.getY() + y, base.getZ() + z);
+    }
+
+    /**
+     * The transform as vanilla's mirror-then-rotate pair, for things like entities that only take one of each. Both
+     * flips together are a half turn.
+     */
+    public Mirror mirror() {
+        return flipX == flipZ ? Mirror.NONE : flipX ? Mirror.FRONT_BACK : Mirror.LEFT_RIGHT;
+    }
+
+    public Rotation vanillaRotation() {
+        int turns = rotation + (flipX && flipZ ? 2 : 0);
+        return switch (turns % 4) {
+            case 1 -> Rotation.CLOCKWISE_90;
+            case 2 -> Rotation.CLOCKWISE_180;
+            case 3 -> Rotation.COUNTERCLOCKWISE_90;
+            default -> Rotation.NONE;
+        };
     }
 
     /** {@return the state turned and mirrored the same way, so stairs, logs and doors face the right way} */

@@ -11,6 +11,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import software.hibiscus.hibiscusfaultline.build.BuildBox;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
+import software.hibiscus.hibiscusfaultline.build.BuildStack;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.build.BuildTransform;
 import org.jspecify.annotations.Nullable;
@@ -26,6 +27,8 @@ final class Selection {
     private static BuildTransform transform = BuildTransform.IDENTITY;
     /** Whether the player has started placing a destination (dragged the gizmo, rotated, flipped or used Move To). */
     private static boolean pending;
+    /** Stack's copies, kept apart from the Move and Clone destination. */
+    private static BuildStack stack = BuildStack.NONE;
     /** Bumped on every change, so caches know when to rebuild. */
     private static int version;
 
@@ -45,6 +48,25 @@ final class Selection {
 
     static int version() {
         return version;
+    }
+
+    static BuildStack stack() {
+        return stack;
+    }
+
+    static void setStack(BuildStack value) {
+        if (!value.equals(stack)) {
+            stack = value;
+            changed();
+        }
+    }
+
+    /** After a Move, the selection follows the blocks to where they went. */
+    static void replaceBox(BuildBox value) {
+        box = value;
+        transform = BuildTransform.IDENTITY;
+        pending = false;
+        changed();
     }
 
     /** {@return whether a destination is being placed for the current tool} */
@@ -122,6 +144,7 @@ final class Selection {
             box = null;
             transform = BuildTransform.IDENTITY;
             pending = false;
+            stack = BuildStack.NONE;
             changed();
         }
     }
@@ -132,7 +155,8 @@ final class Selection {
             return null;
         }
         return new BuildRequest(tool, options, box, pending() ? transform : BuildTransform.IDENTITY,
-                tool == BuildTool.SET ? BuildOperation.setBlock() : Optional.empty(), BuildOperation.mask(tool));
+                tool == BuildTool.SET ? BuildOperation.setBlock() : Optional.empty(), BuildOperation.mask(tool),
+                tool == BuildTool.STACK ? stack : BuildStack.NONE);
     }
 
     private static void changed() {

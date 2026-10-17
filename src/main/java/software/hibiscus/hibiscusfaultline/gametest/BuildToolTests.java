@@ -13,6 +13,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
@@ -22,6 +26,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.food.FoodConstants;
 import net.minecraft.world.item.ItemStack;
@@ -29,6 +35,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.phys.AABB;
@@ -36,6 +43,7 @@ import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import software.hibiscus.hibiscusfaultline.build.BuildBox;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
+import software.hibiscus.hibiscusfaultline.build.BuildStack;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.build.BuildTransform;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
@@ -304,7 +312,170 @@ final class BuildToolTests {
         helper.succeed();
     }
 
+    static void cloneCostsOnePerBlock(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.STONE, 3));
+        row(helper, Blocks.STONE, 3);
+        start(helper, player, transfer(helper, BuildTool.CLONE, 0, 0, 2, 0, new BlockPos(0, 0, 1)));
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    for (int x = 0; x < 3; x++) {
+                        helper.assertBlockPresent(Blocks.STONE, new BlockPos(x, 1, 1));
+                    }
+                })
+                .thenExecute(() -> {
+                    assertRow(helper, Blocks.STONE, 3);
+                    helper.assertValueEqual(player.getInventory().countItem(Items.STONE), 0, "stone left after cloning 3 blocks");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void cloneRefusesWhenShort(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.STONE, 2));
+        row(helper, Blocks.STONE, 3);
+        Optional<Component> problem = BuildJobs.start(player, transfer(helper, BuildTool.CLONE, 0, 0, 2, 0, new BlockPos(0, 0, 1)));
+        helper.assertTrue(problem.isPresent(), "Clone should refuse without enough stone");
+        helper.assertBlockPresent(Blocks.AIR, new BlockPos(0, 1, 1));
+        helper.assertValueEqual(player.getInventory().countItem(Items.STONE), 2, "stone untouched");
+        remove(player);
+        helper.succeed();
+    }
+
+    static void clonePartialBottomUp(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.STONE, 2));
+        for (int y = 1; y <= 3; y++) {
+            helper.setBlock(0, y, 0, Blocks.STONE);
+        }
+        start(helper, player, new BuildRequest(BuildTool.CLONE, mask(BuildOption.PARTIAL),
+                BuildBox.of(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(0, 3, 0))),
+                new BuildTransform(new BlockPos(1, 0, 0), 0, false, false), Optional.empty(), Optional.empty()));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(BuildJobs.get(player) == null, "the job should have finished"))
+                .thenExecute(() -> {
+                    helper.assertBlockPresent(Blocks.STONE, new BlockPos(1, 1, 0));
+                    helper.assertBlockPresent(Blocks.STONE, new BlockPos(1, 2, 0));
+                    helper.assertBlockPresent(Blocks.AIR, new BlockPos(1, 3, 0));
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void cloneChestArrivesEmpty(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.CHEST));
+        helper.setBlock(0, 1, 0, Blocks.CHEST);
+        chest(helper, new BlockPos(0, 1, 0)).setItem(0, new ItemStack(Items.DIAMOND, 5));
+        start(helper, player, transfer(helper, BuildTool.CLONE, 0, 0, 0, 0, new BlockPos(0, 0, 1)));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.CHEST, new BlockPos(0, 1, 1)))
+                .thenExecute(() -> {
+                    helper.assertTrue(chest(helper, new BlockPos(0, 1, 1)).isEmpty(), "the cloned chest should be empty");
+                    helper.assertValueEqual(chest(helper, new BlockPos(0, 1, 0)).getItem(0).getCount(), 5, "the original keeps its diamonds");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    /** A chest moves with its items and its name (block entity data), costs nothing and drops nothing. */
+    static void moveChestKeepsContents(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        helper.setBlock(0, 1, 0, Blocks.CHEST);
+        ChestBlockEntity original = chest(helper, new BlockPos(0, 1, 0));
+        // Components first: applying them also applies the (empty) container contents.
+        original.applyComponents(DataComponentMap.builder().set(DataComponents.CUSTOM_NAME, Component.literal("Stash")).build(),
+                DataComponentPatch.EMPTY);
+        original.setItem(3, new ItemStack(Items.DIAMOND, 7));
+        start(helper, player, transfer(helper, BuildTool.MOVE, 0, 0, 0, 0, new BlockPos(2, 0, 0)));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.CHEST, new BlockPos(2, 1, 0)))
+                .thenExecute(() -> {
+                    helper.assertBlockPresent(Blocks.AIR, new BlockPos(0, 1, 0));
+                    ChestBlockEntity moved = chest(helper, new BlockPos(2, 1, 0));
+                    helper.assertValueEqual(moved.getItem(3).getCount(), 7, "diamonds in the moved chest");
+                    helper.assertTrue(moved.getCustomName() != null && moved.getCustomName().getString().equals("Stash"),
+                            "the chest's name should move with it");
+                    helper.assertTrue(itemsAround(helper) == 0, "nothing should drop");
+                    helper.assertTrue(exhaustion(player) == 0, "moving blocks costs no hunger");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void moveTakesEntities(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        helper.setBlock(0, 1, 0, Blocks.STONE);
+        ArmorStand stand = helper.spawn(EntityTypes.ARMOR_STAND, new BlockPos(0, 2, 0));
+        UUID before = stand.getUUID();
+        BuildRequest request = new BuildRequest(BuildTool.MOVE, mask(BuildOption.MOVE_ENTITIES),
+                BuildBox.of(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(0, 2, 0))),
+                new BuildTransform(new BlockPos(2, 0, 0), 0, false, false), Optional.empty(), Optional.empty());
+        start(helper, player, request);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.STONE, new BlockPos(2, 1, 0)))
+                .thenExecute(() -> {
+                    helper.assertEntityPresent(EntityTypes.ARMOR_STAND, new BlockPos(2, 2, 0));
+                    helper.assertEntityNotPresent(EntityTypes.ARMOR_STAND, new BlockPos(0, 2, 0));
+                    helper.assertTrue(helper.getLevel().getEntity(before) == null || helper.getLevel().getEntity(before).isRemoved()
+                            || helper.getLevel().getEntity(before).blockPosition().equals(helper.absolutePos(new BlockPos(2, 2, 0))),
+                            "the original armour stand should be gone from where it was");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    /** A quarter turn moves blocks round and turns their facing with them. */
+    static void moveRotatesStates(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.CREATIVE);
+        helper.setBlock(0, 1, 0, Blocks.FURNACE.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH));
+        helper.setBlock(1, 1, 0, Blocks.STONE);
+        // A 2x1 row turned clockwise becomes a 1x2 column; furnace at the row's west end lands at the column's north end.
+        start(helper, player, new BuildRequest(BuildTool.MOVE, 0,
+                BuildBox.of(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(1, 1, 0))),
+                new BuildTransform(new BlockPos(2, 0, 0), 1, false, false), Optional.empty(), Optional.empty()));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.FURNACE, new BlockPos(2, 1, 0)))
+                .thenExecute(() -> {
+                    helper.assertBlockPresent(Blocks.STONE, new BlockPos(2, 1, 1));
+                    helper.assertTrue(helper.getBlockState(new BlockPos(2, 1, 0)).getValue(HorizontalDirectionalBlock.FACING) == Direction.EAST,
+                            "a furnace facing north should face east after a clockwise turn");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
+    static void stackCostsPerCopy(GameTestHelper helper) {
+        ServerPlayer player = player(helper, GameType.SURVIVAL);
+        player.getInventory().add(new ItemStack(Items.STONE, 3));
+        helper.setBlock(0, 1, 0, Blocks.STONE);
+        start(helper, player, new BuildRequest(BuildTool.STACK, 0,
+                BuildBox.of(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(0, 1, 0))),
+                BuildTransform.IDENTITY, Optional.empty(), Optional.empty(), new BuildStack(Direction.EAST, 3, 0)));
+        helper.startSequence()
+                .thenWaitUntil(() -> assertRow(helper, Blocks.STONE, 4))
+                .thenExecute(() -> {
+                    helper.assertValueEqual(player.getInventory().countItem(Items.STONE), 0, "3 copies of 1 block cost 3 stone");
+                    remove(player);
+                })
+                .thenSucceed();
+    }
+
     // Helpers
+
+    private static BuildRequest transfer(GameTestHelper helper, BuildTool tool, int x0, int z0, int x1, int z1, BlockPos offset) {
+        return new BuildRequest(tool, 0,
+                BuildBox.of(helper.absolutePos(new BlockPos(x0, 1, z0)), helper.absolutePos(new BlockPos(x1, 1, z1))),
+                new BuildTransform(offset, 0, false, false), Optional.empty(), Optional.empty());
+    }
+
+    private static ChestBlockEntity chest(GameTestHelper helper, BlockPos relative) {
+        if (helper.getLevel().getBlockEntity(helper.absolutePos(relative)) instanceof ChestBlockEntity chest) {
+            return chest;
+        }
+        throw helper.assertionException("expected a chest at " + relative);
+    }
 
     /**
      * A real server player with a mock connection, standing on a block just outside the test area. Also clears the

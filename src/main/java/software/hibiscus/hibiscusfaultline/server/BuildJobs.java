@@ -13,7 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildRequest;
+import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.network.BuildControlPayload;
 import org.jspecify.annotations.Nullable;
 
@@ -36,18 +38,15 @@ public final class BuildJobs {
         if (limits.isPresent()) {
             return limits;
         }
-        BuildPlan plan = switch (request.tool()) {
-            case ERASE -> BuildPlan.erase(player, request, creative);
-            case SET -> BuildPlan.set(player, request, creative);
-            default -> null;
-        };
+        BuildPlan plan = BuildValidator.plan(player, request, creative).orElse(null);
         if (plan == null) {
-            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.not_yet"));
+            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.no_destination"));
         }
         if (plan.problem().isPresent()) {
             return plan.problem();
         }
-        if (plan.tasks().isEmpty()) {
+        boolean entitiesOnly = request.tool() == BuildTool.MOVE && request.has(BuildOption.MOVE_ENTITIES);
+        if (plan.isEmpty() && !entitiesOnly) {
             return Optional.of(Component.translatable("hibiscusfaultline.build.problem.nothing"));
         }
         BuildJob job = new BuildJob(player, request, plan, creative);

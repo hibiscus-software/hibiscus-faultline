@@ -19,6 +19,8 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-17
+
 ### Changed
 
 - Build tool selections: left-click picks the first corner and right-click the second. With a selection, left-click
@@ -102,6 +104,7 @@ The first release of Hibiscus Faultline, for Minecraft 26.3 on NeoForge 26.3.0.2
   `hibiscusfaultline:excluded_tools`.
 - A mod list icon and banner.
 
-[Unreleased]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.1.0+26.3...HEAD
+[Unreleased]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.1.1+26.3...HEAD
+[1.1.1]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.1.0+26.3...v1.1.1+26.3
 [1.1.0]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.0.0+26.3...v1.1.0+26.3
 [1.0.0]: https://github.com/hibiscus-software/hibiscus-faultline/commits/v1.0.0+26.3

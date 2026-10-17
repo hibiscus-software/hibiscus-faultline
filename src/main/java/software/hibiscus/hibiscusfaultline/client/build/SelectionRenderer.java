@@ -70,7 +70,8 @@ final class SelectionRenderer {
                 BuildBox growing = hover.kind() == SelectionInput.Kind.BLOCK ? BuildBox.of(first, hover.block()) : BuildBox.of(first, first);
                 draw.box(growing, ARGB.color(FILL_ALPHA, colour), ARGB.color(LINE_ALPHA, colour), null, 0);
             } else if (hover.kind() == SelectionInput.Kind.BLOCK) {
-                draw.faceOutline(hover.block(), hover.face(), ARGB.color(LINE_ALPHA, 0xFFFFFF));
+                BuildBox block = BuildBox.of(hover.block(), hover.block());
+                draw.box(block, ARGB.color(FILL_ALPHA / 2, 0xFFFFFF), ARGB.color(LINE_ALPHA, 0xFFFFFF), null, 0);
             }
             return;
         }
@@ -212,20 +213,6 @@ final class SelectionRenderer {
             });
         }
 
-        /** The outline of one face of one block, for the cursor before the first corner is picked. */
-        void faceOutline(BlockPos pos, Direction face, int line) {
-            float x0 = (float) (pos.getX() - camera.x);
-            float y0 = (float) (pos.getY() - camera.y);
-            float z0 = (float) (pos.getZ() - camera.z);
-            float[][] corners = faceCorners(x0 - INFLATE, y0 - INFLATE, z0 - INFLATE, x0 + 1 + INFLATE, y0 + 1 + INFLATE, z0 + 1 + INFLATE, face);
-            collector.submitCustomGeometry(poseStack, lineType, (pose, buffer) -> {
-                for (int i = 0; i < 4; i++) {
-                    float[] a = corners[i];
-                    float[] b = corners[(i + 1) % 4];
-                    lineVertices(pose, buffer, a[0], a[1], a[2], b[0], b[1], b[2], line);
-                }
-            });
-        }
 
         void line(Vec3 from, Vec3 to, int colour) {
             collector.submitCustomGeometry(poseStack, lineType, (pose, buffer) -> lineVertices(pose, buffer,

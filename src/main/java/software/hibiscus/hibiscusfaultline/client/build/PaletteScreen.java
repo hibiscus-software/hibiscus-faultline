@@ -12,7 +12,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
@@ -28,6 +27,8 @@ import org.jspecify.annotations.Nullable;
 final class PaletteScreen extends Screen {
     private static final int CELL = BuildHud.SLOT_SIZE;
     private static final int CELL_GAP = 1;
+    private static final int NAME_GAP = 4;
+    private static final int PANEL_GAP = 8;
     private static final int OPTION_HEIGHT = 16;
     private static final int OPTION_GAP = 2;
     private static final int OPTION_MIN_WIDTH = 120;
@@ -75,13 +76,26 @@ final class PaletteScreen extends Screen {
             // Toggles and buttons need about 30 px beside the label.
             width = Math.max(width, font.width(row.getMessage()) + 30);
         }
-        int right = BuildHud.slotX(this.width) - 4;
+        // Right of the palette, past the room the tool names take; on the left only if the screen is too narrow.
+        int paletteX = BuildHud.slotX(this.width);
+        int left = paletteX + CELL + NAME_GAP + maxNameWidth() + PANEL_GAP;
+        if (left + width > this.width - 2) {
+            left = paletteX - PANEL_GAP - width;
+        }
         int y = BuildHud.slotY(this.height) + CELL - rows.size() * (OPTION_HEIGHT + OPTION_GAP) + OPTION_GAP;
         for (AbstractWidget row : rows) {
-            row.setRectangle(width, OPTION_HEIGHT, right - width, y);
+            row.setRectangle(width, OPTION_HEIGHT, left, y);
             addRenderableWidget(row);
             y += OPTION_HEIGHT + OPTION_GAP;
         }
+    }
+
+    private int maxNameWidth() {
+        int width = 0;
+        for (BuildTool tool : BuildTool.values()) {
+            width = Math.max(width, font.width(tool.displayName()));
+        }
+        return width;
     }
 
     /** The option's name, with the mask block for Mask and Replace once one is set. */
@@ -112,16 +126,24 @@ final class PaletteScreen extends Screen {
         BuildTool current = BuildClient.tool();
         BuildTool hovered = toolAt(mouseX, mouseY);
         int x = BuildHud.slotX(width);
+        // Draw the unselected cells first so the selected one's frame sits on top of its neighbours.
         for (BuildTool tool : BuildTool.values()) {
-            int y = cellY(tool);
-            boolean allowed = BuildClient.allowed(tool);
-            FaultlineTheme.hibiscus().button(graphics, x, y, CELL, CELL, allowed, tool == hovered, false);
-            int inset = (CELL - 16) / 2;
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, FaultlineTheme.toolIcon(tool), x + inset, y + inset, 16, 16, allowed ? 1.0F : 0.35F);
-            if (tool == current) {
-                graphics.outline(x - 1, y - 1, CELL + 2, CELL + 2, FaultlineTheme.tool(tool));
-                graphics.text(font, tool.displayName(), x + CELL + 4, y + (CELL - font.lineHeight) / 2 + 1, FaultlineTheme.tool(tool), true);
+            if (tool != current) {
+                drawCell(graphics, x, tool, false, tool == hovered);
             }
+        }
+        drawCell(graphics, x, current, true, current == hovered);
+        graphics.text(font, current.displayName(), x + CELL + NAME_GAP, cellY(current) + (CELL - font.lineHeight) / 2 + 1,
+                FaultlineTheme.tool(current), true);
+    }
+
+    private void drawCell(GuiGraphicsExtractor graphics, int x, BuildTool tool, boolean selected, boolean hovered) {
+        int y = cellY(tool);
+        BuildHud.drawSlot(graphics, x, y, tool, selected);
+        if (!BuildClient.allowed(tool)) {
+            graphics.fill(x + 1, y + 1, x + CELL - 1, y + CELL - 1, 0xA0000000);
+        } else if (hovered && !selected) {
+            graphics.fill(x + 3, y + 3, x + CELL - 3, y + CELL - 3, 0x40FFFFFF);
         }
     }
 
@@ -159,9 +181,9 @@ final class PaletteScreen extends Screen {
         }
     }
 
-    /** Move sits directly above the slot, and the rest stack upwards in tool order. */
+    /** The column takes the slot's place: Move where the slot is, the rest stacking upwards in tool order. */
     private int cellY(BuildTool tool) {
-        return BuildHud.slotY(height) - (tool.ordinal() + 1) * (CELL + CELL_GAP);
+        return BuildHud.slotY(height) - tool.ordinal() * (CELL + CELL_GAP);
     }
 
     private @Nullable BuildTool toolAt(double mouseX, double mouseY) {

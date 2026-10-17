@@ -61,13 +61,7 @@ final class Selection {
         }
     }
 
-    /** After a Move, the selection follows the blocks to where they went. */
-    static void replaceBox(BuildBox value) {
-        box = value;
-        transform = BuildTransform.IDENTITY;
-        pending = false;
-        changed();
-    }
+
 
     /** {@return whether a destination is being placed for the current tool} */
     static boolean pending() {

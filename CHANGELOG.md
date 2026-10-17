@@ -19,6 +19,20 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Changed
+
+- Build tool selections: left-click picks the first corner and right-click the second. With a selection, left-click
+  cancels it and right-click confirms. Selections clear when you switch tools and after every operation.
+- The tool slot looks like a vanilla hotbar slot and sits a little further from the hotbar; while it's active the
+  hotbar shows nothing selected. Holding Alt turns the slot into the tool column, so the current tool isn't shown
+  twice, with the options panel to its right. The tool's name sits a little above its hints.
+- The cursor box before the first corner outlines the whole block, not just the face.
+
+### Fixed
+
+- Ctrl + scroll into and out of the tool slot follows the way vanilla moves the hotbar, so it no longer sometimes
+  fails with smooth or high-resolution scrolling.
+
 ## [1.1.0] - 2026-10-17
 
 ### Added

@@ -15,7 +15,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.neoforged.neoforge.client.gui.GuiLayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.HumanoidArm;
@@ -35,8 +38,16 @@ final class BuildHud {
     private static final int ICON_SIZE = 16;
     private static final int MOUSE_WIDTH = 7;
     private static final int MOUSE_HEIGHT = 9;
-    /** Space between the hotbar (or whatever sits at its right end) and the slot. */
+    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");
+    private static final Identifier SELECTION_SPRITE = Identifier.withDefaultNamespace("hud/hotbar_selection");
+    private static final Identifier OFFHAND_LEFT_SPRITE = Identifier.withDefaultNamespace("hud/hotbar_offhand_left");
+    private static final Identifier OFFHAND_RIGHT_SPRITE = Identifier.withDefaultNamespace("hud/hotbar_offhand_right");
+    /** Space between the slot and the label beside it. */
     private static final int GAP = 4;
+    /** Space between the hotbar (or whatever sits at its right end) and the slot. */
+    private static final int SLOT_GAP = 7;
+    /** Extra space between the tool's name and the hints under it. */
+    private static final int TITLE_GAP = 3;
     private static final int PADDING = 4;
     private static final int ITEM_SIZE = 16;
     private static final int MAX_MATERIAL_LINES = 8;
@@ -61,14 +72,13 @@ final class BuildHud {
         BuildTool tool = BuildClient.tool();
         boolean active = BuildClient.isActive();
 
-        FaultlineTheme.hibiscus().panel(graphics, x, y, SLOT_SIZE, SLOT_SIZE);
-        if (active) {
-            graphics.outline(x - 1, y - 1, SLOT_SIZE + 2, SLOT_SIZE + 2, FaultlineTheme.tool(tool));
+        boolean palette = minecraft.gui.screen() instanceof PaletteScreen;
+        if (!palette) {
+            // While the palette is open its column stands in for the slot, so the tool is never shown twice.
+            drawSlot(graphics, x, y, tool, active);
         }
-        int inset = (SLOT_SIZE - ICON_SIZE) / 2;
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, FaultlineTheme.toolIcon(tool), x + inset, y + inset, ICON_SIZE, ICON_SIZE, active ? 1.0F : 0.6F);
 
-        if (active && !(minecraft.gui.screen() instanceof PaletteScreen)) {
+        if (active && !palette) {
             Font font = minecraft.font;
             drawLabel(graphics, font, x, y, tool);
             int hintsRight = drawContextHints(graphics, font);
@@ -113,10 +123,14 @@ final class BuildHud {
             hints.add(hint(MouseHint.RIGHT, "link"));
         }
         if (box == null) {
-            hints.add(hint(MouseHint.LEFT, Selection.first() == null ? "first_point" : "second_point"));
+            hints.add(hint(MouseHint.LEFT, "first_point"));
+            if (Selection.first() != null) {
+                hints.add(hint(MouseHint.RIGHT, "second_point"));
+            }
             return hints;
         }
         if (BuildClient.tool() == BuildTool.STACK) {
+            hints.add(hint(MouseHint.LEFT, "cancel"));
             hints.add(hint(MouseHint.SCROLL, "scroll_count"));
             if (Selection.stack().count() > 0) {
                 hints.add(hint(MouseHint.SCROLL, "scroll_gap"));
@@ -125,15 +139,7 @@ final class BuildHud {
             return hints;
         }
         boolean destinationTool = Selection.hasDestination(BuildClient.tool());
-        if (hovered == SelectionInput.Kind.GIZMO || SelectionInput.dragging()) {
-            hints.add(hint(MouseHint.LEFT, "drag"));
-        } else if (Selection.pending()) {
-            hints.add(hint(MouseHint.LEFT, "cancel"));
-        } else if (hovered == SelectionInput.Kind.BLOCK) {
-            hints.add(hint(MouseHint.LEFT, "extend"));
-        } else if (hovered == SelectionInput.Kind.NONE) {
-            hints.add(hint(MouseHint.LEFT, "clear"));
-        }
+        hints.add(hint(MouseHint.LEFT, hovered == SelectionInput.Kind.GIZMO || SelectionInput.dragging() ? "drag" : "cancel"));
         if (Selection.pending()) {
             hints.add(hint(MouseHint.SCROLL, "scroll_move"));
         } else if (hovered == SelectionInput.Kind.FACE) {
@@ -141,7 +147,7 @@ final class BuildHud {
         }
         boolean moveTo = destinationTool && (Selection.pending() || !BuildClient.option(BuildOption.MIDDLE_EXTEND));
         hints.add(hint(MouseHint.MIDDLE, moveTo ? "move_to" : "extend_to"));
-        if (!Minecraft.getInstance().hasShiftDown() && (!destinationTool || Selection.pending())) {
+        if (!Minecraft.getInstance().hasShiftDown() && SelectionInput.canConfirm()) {
             hints.add(hint(MouseHint.RIGHT, "confirm"));
         }
         return hints;
@@ -286,8 +292,7 @@ final class BuildHud {
         for (Hint hint : hints) {
             width = Math.max(width, hintWidth(font, hint));
         }
-        int lines = 1 + hints.size();
-        int height = lines * font.lineHeight;
+        int height = font.lineHeight + (hints.isEmpty() ? 0 : TITLE_GAP + hints.size() * font.lineHeight);
 
         int x = slotX + SLOT_SIZE + GAP;
         int bottom = slotY + SLOT_SIZE;
@@ -297,8 +302,62 @@ final class BuildHud {
         }
         int y = bottom - height;
         graphics.text(font, tool.displayName(), x, y, FaultlineTheme.tool(tool), true);
+        int hintsTop = y + font.lineHeight + TITLE_GAP;
         for (int i = 0; i < hints.size(); i++) {
-            drawHint(graphics, font, hints.get(i), x, y + (i + 1) * font.lineHeight, FaultlineTheme.textMuted());
+            drawHint(graphics, font, hints.get(i), x, hintsTop + i * font.lineHeight, FaultlineTheme.textMuted());
+        }
+    }
+
+    /**
+     * A slot drawn like the hotbar's own: a piece of the vanilla hotbar sprite, the tool's icon, and vanilla's
+     * selection frame when it's the active one. Resource packs that restyle the hotbar restyle this too.
+     */
+    static void drawSlot(GuiGraphicsExtractor graphics, int x, int y, BuildTool tool, boolean selected) {
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, x, y, SLOT_SIZE - 1, SLOT_SIZE);
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 181, 0, x + SLOT_SIZE - 1, y, 1, SLOT_SIZE);
+        int inset = (SLOT_SIZE - ICON_SIZE) / 2;
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, FaultlineTheme.toolIcon(tool), x + inset, y + inset, ICON_SIZE, ICON_SIZE);
+        if (selected) {
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SELECTION_SPRITE, x - 1, y - 1, 24, 23);
+        }
+    }
+
+    /**
+     * Wraps vanilla's hotbar layer. While the tool slot is active nothing in the hotbar is selected, so the hotbar is
+     * drawn without its selection frame; otherwise vanilla draws it as usual.
+     */
+    static GuiLayer wrapHotbar(GuiLayer vanilla) {
+        return (graphics, deltaTracker) -> {
+            Minecraft minecraft = Minecraft.getInstance();
+            LocalPlayer player = minecraft.player;
+            if (!BuildClient.isActive() || player == null || player.isSpectator()) {
+                vanilla.render(graphics, deltaTracker);
+                return;
+            }
+            int centre = graphics.guiWidth() / 2;
+            int bottom = graphics.guiHeight();
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, centre - 91, bottom - 22, 182, 22);
+            ItemStack offhand = player.getOffhandItem();
+            boolean offhandLeft = player.getMainArm().getOpposite() == HumanoidArm.LEFT;
+            if (!offhand.isEmpty()) {
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, offhandLeft ? OFFHAND_LEFT_SPRITE : OFFHAND_RIGHT_SPRITE,
+                        offhandLeft ? centre - 91 - 29 : centre + 91, bottom - 23, 29, 24);
+            }
+            Font font = minecraft.font;
+            int seed = 1;
+            for (int i = 0; i < Inventory.getSelectionSize(); i++) {
+                drawItem(graphics, font, player, player.getInventory().getItem(i), centre - 90 + i * 20 + 2, bottom - 19, seed++);
+            }
+            if (!offhand.isEmpty()) {
+                drawItem(graphics, font, player, offhand, offhandLeft ? centre - 91 - 26 : centre + 91 + 10, bottom - 19, seed);
+            }
+        };
+    }
+
+    private static void drawItem(GuiGraphicsExtractor graphics, Font font, LocalPlayer player, ItemStack stack, int x, int y, int seed) {
+        if (!stack.isEmpty()) {
+            graphics.item(player, stack, x, y, seed);
+            graphics.itemDecorations(font, stack, x, y);
         }
     }
 
@@ -325,7 +384,7 @@ final class BuildHud {
     static int slotX(int guiWidth) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        int x = guiWidth / 2 + 91 + GAP + ClientConfig.BUILD_SLOT_OFFSET_X.get();
+        int x = guiWidth / 2 + 91 + SLOT_GAP + ClientConfig.BUILD_SLOT_OFFSET_X.get();
         if (player != null) {
             boolean offhandOnRight = player.getMainArm().getOpposite() == HumanoidArm.RIGHT;
             if (offhandOnRight && !player.getOffhandItem().isEmpty()) {

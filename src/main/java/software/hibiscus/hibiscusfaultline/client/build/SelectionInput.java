@@ -119,27 +119,43 @@ final class SelectionInput {
         hover = found;
     }
 
+    /**
+     * Left-click picks the first corner (again, while the second isn't picked yet). With a selection it cancels: the
+     * destination first, then the selection itself. On the gizmo it starts a drag.
+     */
     static void leftClick() {
-        BuildBox box = Selection.box();
         if (hover.kind() == Kind.GIZMO) {
             startDrag();
         } else if (Selection.pending()) {
             Selection.resetDestination();
-        } else if (box != null) {
-            if (hover.kind() == Kind.BLOCK) {
-                Selection.extendTo(hover.block());
-            } else if (hover.kind() == Kind.NONE) {
-                Selection.clear();
-            }
-        } else if (Selection.first() != null) {
-            if (hover.kind() == Kind.BLOCK) {
-                Selection.complete(hover.block());
-            } else if (hover.kind() == Kind.NONE) {
-                Selection.clear();
-            }
-        } else if (hover.kind() == Kind.BLOCK) {
+        } else if (Selection.box() != null) {
+            Selection.clear();
+        } else if (hover.kind() == Kind.BLOCK || hover.kind() == Kind.INSIDE) {
             Selection.setFirst(hover.block());
         }
+    }
+
+    /** Right-click picks the second corner. {@return whether it did} Otherwise right-click confirms. */
+    static boolean rightClick() {
+        if (Selection.box() != null || Selection.first() == null) {
+            return false;
+        }
+        if (hover.kind() == Kind.BLOCK || hover.kind() == Kind.INSIDE) {
+            Selection.complete(hover.block());
+        }
+        return true;
+    }
+
+    /** {@return whether right-click would confirm an operation now} */
+    static boolean canConfirm() {
+        if (Selection.box() == null) {
+            return false;
+        }
+        return switch (BuildClient.tool()) {
+            case MOVE, CLONE -> Selection.pending();
+            case STACK -> Selection.stack().count() > 0;
+            case ERASE, SET -> true;
+        };
     }
 
     /** Extends the selection to the looked-at block, or for Move and Clone (unless set to extend) does Move To. */

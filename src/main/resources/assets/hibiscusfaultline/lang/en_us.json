@@ -44,8 +44,6 @@
   "hibiscusfaultline.build.hint.second_point": "Second Point",
   "hibiscusfaultline.build.hint.drag": "Drag to move",
   "hibiscusfaultline.build.hint.cancel": "Cancel",
-  "hibiscusfaultline.build.hint.extend": "Click to extend",
-  "hibiscusfaultline.build.hint.clear": "Clear selection",
   "hibiscusfaultline.build.hint.scroll_move": "Scroll to move",
   "hibiscusfaultline.build.hint.scroll_face": "Scroll to push or pull this face",
   "hibiscusfaultline.build.hint.move_to": "Move To",

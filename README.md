@@ -34,18 +34,18 @@ tree. Leaves are only taken when you start on a leaf.
 
 Ctrl + scroll past either end of the hotbar to enter the tool slot (or bind "Toggle Build Tool Slot"). While
 it's active your clicks drive the tool instead of the item in your hand. Ctrl + scroll again, or press a
-hotbar number, to leave.
+hotbar number, to leave. A selection belongs to its tool: switching tools, or finishing an operation, clears it.
 
 ### Controls
 
 | Input | What it does |
 | --- | --- |
-| Left-click | First corner, then second corner. Afterwards: extend the box to a clicked block, or clear it by clicking at nothing |
+| Left-click | First corner. With a selection: cancel it (the destination first, for Move and Clone) |
+| Right-click | Second corner. With a selection: confirm. During an operation: resume |
 | Scroll over a face | Push or pull that face of the selection |
 | Middle-click | Extend to the looked-at block, or for Move and Clone, Move To (the option "Middle Click: Extend Select" chooses) |
 | Drag the sphere | Move and Clone: slide the destination; scroll then moves it along the looked-at axis |
 | Ctrl+R / Ctrl+F | Move and Clone: turn the destination a quarter turn clockwise / flip it along the axis you face |
-| Right-click | Confirm. During an operation: resume |
 | Left-click during an operation | Pause; a second left-click stops |
 | Escape | Steps back: stop, cancel the destination, clear the selection, then the pause menu |
 | Alt (hold) | Tool palette and options; Alt + scroll changes tool |

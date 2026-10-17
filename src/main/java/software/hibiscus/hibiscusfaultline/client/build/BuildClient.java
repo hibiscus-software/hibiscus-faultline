@@ -10,6 +10,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+import net.minecraft.client.ScrollWheelHandler;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
@@ -101,11 +102,13 @@ public final class BuildClient {
         }
     }
 
+    /** Switching tools starts afresh: a selection belongs to the tool it was made with. */
     public static void selectTool(BuildTool next) {
         if (next == tool || !allowed(next)) {
             return;
         }
         tool = next;
+        Selection.clear();
         ClientConfig.BUILD_LAST_TOOL.set(next.id());
         ClientConfig.BUILD_LAST_TOOL.save();
     }
@@ -133,6 +136,7 @@ public final class BuildClient {
 
     private static void registerLayers(RegisterGuiLayersEvent event) {
         event.registerAbove(VanillaGuiLayers.HOTBAR, HibiscusFaultline.id("build_slot"), BuildHud::render);
+        event.wrapLayer(VanillaGuiLayers.HOTBAR, BuildHud::wrapHotbar);
     }
 
     private static void registerPayloads(RegisterClientPayloadHandlersEvent event) {
@@ -227,26 +231,32 @@ public final class BuildClient {
     private static void onScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        if (event.isCanceled() || player == null || minecraft.gui.screen() != null || event.getScrollDeltaY() == 0 || !available()) {
+        if (event.isCanceled() || player == null || minecraft.gui.screen() != null || !available()) {
             return;
         }
-        // Scrolling up moves left along the hotbar, as vanilla does.
-        int direction = event.getScrollDeltaY() > 0 ? -1 : 1;
+        // The same whole wheel steps vanilla moves the hotbar by, so "right" here is always the way vanilla goes right,
+        // whatever the mouse, scroll speed or smooth-scrolling setting.
+        int wheel = event.getAccumulatedScrollY() != 0 ? event.getAccumulatedScrollY() : -event.getAccumulatedScrollX();
+        if (wheel == 0) {
+            return;
+        }
+        int size = Inventory.getSelectionSize();
+        boolean right = ScrollWheelHandler.getNextScrollWheelSelection(wheel, 0, size) == 1;
         Inventory inventory = player.getInventory();
         if (active) {
+            // Inside the slot the wheel never touches the hotbar; only Ctrl + scroll leaves.
             event.setCanceled(true);
             if (minecraft.hasControlDown()) {
-                inventory.setSelectedSlot(direction > 0 ? 0 : Inventory.getSelectionSize() - 1);
+                inventory.setSelectedSlot(right ? 0 : size - 1);
                 setActive(false);
             } else if (minecraft.hasAltDown()) {
-                cycleTool(direction);
+                cycleTool(right ? 1 : -1);
             } else {
-                SelectionInput.scroll(direction < 0);
+                SelectionInput.scroll(wheel > 0);
             }
         } else if (minecraft.hasControlDown()) {
-            int last = Inventory.getSelectionSize() - 1;
             int slot = inventory.getSelectedSlot();
-            if ((direction > 0 && slot == last) || (direction < 0 && slot == 0)) {
+            if ((right && slot == size - 1) || (!right && slot == 0)) {
                 event.setCanceled(true);
                 setActive(true);
             }

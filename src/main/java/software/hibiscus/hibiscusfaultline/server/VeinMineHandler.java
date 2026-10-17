@@ -31,12 +31,12 @@ import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import software.hibiscus.hibiscusfaultline.config.Settings;
 import software.hibiscus.hibiscusfaultline.mode.Mode;
 import software.hibiscus.hibiscusfaultline.mode.Modes;
 import software.hibiscus.hibiscusfaultline.network.CooldownPayload;
+import software.hibiscus.hibiscusfaultline.network.FaultlineNetwork;
 import software.hibiscus.hibiscusfaultline.selection.Selector;
 import org.jspecify.annotations.Nullable;
 
@@ -82,7 +82,7 @@ public final class VeinMineHandler {
     }
 
     private static void onBreak(BreakBlockEvent event) {
-        if (active != null || !(event.getPlayer() instanceof ServerPlayer player) || !(event.getLevel() instanceof ServerLevel level)) {
+        if (active != null || BuildProtection.isPosting() || !(event.getPlayer() instanceof ServerPlayer player) || !(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
         PlayerState state = STATES.get(player.getUUID());
@@ -95,7 +95,7 @@ public final class VeinMineHandler {
         }
         int now = level.getServer().getTickCount();
         if (now < state.cooldownUntil) {
-            PacketDistributor.sendToPlayer(player, new CooldownPayload(state.cooldownUntil - now));
+            FaultlineNetwork.send(player, new CooldownPayload(state.cooldownUntil - now));
             return;
         }
         Mode mode = Modes.usable(state.mode, settings);
@@ -154,8 +154,8 @@ public final class VeinMineHandler {
                 if (level.getBlockState(pos) != job.expected.get(i)) {
                     continue; // changed since it was selected
                 }
-                if (player.gameMode.destroyBlock(pos) && !player.isCreative() && settings.hungerPerBlock() > 0) {
-                    player.causeFoodExhaustion(settings.hungerPerBlock());
+                if (player.gameMode.destroyBlock(pos)) {
+                    MiningCosts.chargeExtraBlock(player, settings);
                 }
             }
         } finally {
@@ -167,7 +167,7 @@ public final class VeinMineHandler {
         }
         if (settings.cooldownTicks() > 0) {
             state(player).cooldownUntil = level.getServer().getTickCount() + settings.cooldownTicks();
-            PacketDistributor.sendToPlayer(player, new CooldownPayload(settings.cooldownTicks()));
+            FaultlineNetwork.send(player, new CooldownPayload(settings.cooldownTicks()));
         }
     }
 

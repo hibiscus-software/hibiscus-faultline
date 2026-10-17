@@ -6,6 +6,7 @@
 
 package software.hibiscus.hibiscusfaultline.client.build;
 
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import software.hibiscus.hibiscusfaultline.build.BuildBox;
@@ -130,7 +131,8 @@ final class Selection {
         if (box == null) {
             return null;
         }
-        return new BuildRequest(tool, options, box, pending() ? transform : BuildTransform.IDENTITY);
+        return new BuildRequest(tool, options, box, pending() ? transform : BuildTransform.IDENTITY,
+                tool == BuildTool.SET ? BuildOperation.setBlock() : Optional.empty(), BuildOperation.mask(tool));
     }
 
     private static void changed() {

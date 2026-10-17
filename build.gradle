@@ -56,6 +56,10 @@ runs {
     server {
         argument '--nogui'
     }
+
+    // Runs every registered gametest, then exits: ./gradlew runGameTestServer
+    gameTestServer {
+    }
 }
 
 // Sets up a dependency configuration called 'localRuntime'.

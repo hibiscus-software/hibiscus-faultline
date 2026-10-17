@@ -7,9 +7,12 @@
 package software.hibiscus.hibiscusfaultline.config;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
+import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.neoforge.common.TranslatableEnum;
 import software.hibiscus.hibiscusfaultline.mode.Mode;
 import software.hibiscus.hibiscusfaultline.mode.Modes;
 
@@ -18,6 +21,17 @@ import software.hibiscus.hibiscusfaultline.mode.Modes;
  * and the preview they draw matches what the server will actually break.
  */
 public final class ServerConfig {
+    /** Where returned items go once the inventory and linked containers are full. */
+    public enum Overflow implements TranslatableEnum {
+        DROP,
+        STOP;
+
+        @Override
+        public Component getTranslatedName() {
+            return Component.translatable(key("buildTools.overflow." + name().toLowerCase(Locale.ROOT)));
+        }
+    }
+
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.IntValue MAX_BLOCKS = BUILDER
@@ -88,6 +102,13 @@ public final class ServerConfig {
     public static final ModConfigSpec.IntValue BUILD_MAX_DISTANCE;
     public static final ModConfigSpec.IntValue BUILD_MAX_DISTANCE_CREATIVE;
     public static final ModConfigSpec.IntValue BUILD_GHOST_PREVIEW_LIMIT;
+    public static final ModConfigSpec.IntValue BUILD_BLOCKS_PER_TICK;
+    public static final ModConfigSpec.DoubleValue BUILD_ERASE_TIME_MULTIPLIER;
+    public static final ModConfigSpec.IntValue BUILD_ERASE_PARALLEL;
+    public static final ModConfigSpec.BooleanValue BUILD_ERASE_WITHOUT_TOOL;
+    public static final ModConfigSpec.IntValue BUILD_MAX_LINKED_CONTAINERS;
+    public static final ModConfigSpec.IntValue BUILD_LINK_RANGE;
+    public static final ModConfigSpec.EnumValue<Overflow> BUILD_OVERFLOW;
 
     static {
         BUILDER.comment("Which modes players can pick.").translation(key("modes")).push("modes");
@@ -124,6 +145,34 @@ public final class ServerConfig {
                 .comment("Most blocks drawn as ghost blocks in a preview. Bigger operations show only their outline.")
                 .translation(key("buildTools.ghostPreviewLimit"))
                 .defineInRange("ghostPreviewLimit", 4096, 0, 65536);
+        BUILD_BLOCKS_PER_TICK = BUILDER
+                .comment("Most blocks an operation changes per tick, so big operations don't stall the server.")
+                .translation(key("buildTools.blocksPerTick"))
+                .defineInRange("blocksPerTick", 2048, 1, 65536);
+        BUILD_ERASE_TIME_MULTIPLIER = BUILDER
+                .comment("How long Erase takes per block in survival, as a share of the time mining it by hand with the best tool you carry.")
+                .translation(key("buildTools.eraseTimeMultiplier"))
+                .defineInRange("eraseTimeMultiplier", 0.5, 0.0, 10.0);
+        BUILD_ERASE_PARALLEL = BUILDER
+                .comment("How many blocks Erase works on at once in survival.")
+                .translation(key("buildTools.eraseParallel"))
+                .defineInRange("eraseParallel", 8, 1, 64);
+        BUILD_ERASE_WITHOUT_TOOL = BUILDER
+                .comment("Let Erase remove blocks you carry no tool to harvest. They drop nothing. When off they are skipped.")
+                .translation(key("buildTools.eraseWithoutTool"))
+                .define("eraseWithoutTool", false);
+        BUILD_MAX_LINKED_CONTAINERS = BUILDER
+                .comment("How many containers a player can link as extra material sources.")
+                .translation(key("buildTools.maxLinkedContainers"))
+                .defineInRange("maxLinkedContainers", 4, 0, 64);
+        BUILD_LINK_RANGE = BUILDER
+                .comment("How far away, in blocks, a linked container still counts.")
+                .translation(key("buildTools.linkRange"))
+                .defineInRange("linkRange", 64, 1, 1024);
+        BUILD_OVERFLOW = BUILDER
+                .comment("What happens to returned items that fit neither in the inventory nor in linked containers: drop them at the player's feet, or stop the operation.")
+                .translation(key("buildTools.overflow"))
+                .defineEnum("overflow", Overflow.DROP);
         BUILDER.pop();
     }
 
@@ -168,6 +217,34 @@ public final class ServerConfig {
 
     public static int buildMaxDistance(boolean creative) {
         return read(creative ? BUILD_MAX_DISTANCE_CREATIVE : BUILD_MAX_DISTANCE);
+    }
+
+    public static int buildBlocksPerTick() {
+        return read(BUILD_BLOCKS_PER_TICK);
+    }
+
+    public static float buildEraseTimeMultiplier() {
+        return read(BUILD_ERASE_TIME_MULTIPLIER).floatValue();
+    }
+
+    public static int buildEraseParallel() {
+        return read(BUILD_ERASE_PARALLEL);
+    }
+
+    public static boolean buildEraseWithoutTool() {
+        return read(BUILD_ERASE_WITHOUT_TOOL);
+    }
+
+    public static int buildMaxLinkedContainers() {
+        return read(BUILD_MAX_LINKED_CONTAINERS);
+    }
+
+    public static int buildLinkRange() {
+        return read(BUILD_LINK_RANGE);
+    }
+
+    public static Overflow buildOverflow() {
+        return read(BUILD_OVERFLOW);
     }
 
     public static int buildGhostPreviewLimit() {

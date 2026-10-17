@@ -6,14 +6,18 @@
 
 package software.hibiscus.hibiscusfaultline.client.build;
 
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import software.hibiscus.hibiscusfaultline.build.BuildOption;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
+import software.hibiscus.hibiscuslib.client.gui.widget.TextButton;
 import software.hibiscus.hibiscuslib.client.gui.widget.ToggleButton;
 import org.jspecify.annotations.Nullable;
 
@@ -32,29 +36,62 @@ final class PaletteScreen extends Screen {
         super(Component.translatable("hibiscusfaultline.build.palette"));
     }
 
+    /**
+     * Lays out the panel left of the palette, bottom up: the tool's options, then Set's block, then the linked
+     * containers, each of which unlinks when clicked.
+     */
     @Override
     protected void init() {
         BuildTool tool = BuildClient.tool();
-        List<BuildOption> options = tool.options();
-        int width = OPTION_MIN_WIDTH;
-        for (BuildOption option : options) {
-            // The toggle switch and its padding take about 30 px beside the label.
-            width = Math.max(width, font.width(option.displayName()) + 30);
+        List<AbstractWidget> rows = new ArrayList<>();
+        for (BlockPos pos : BuildOperation.linked()) {
+            Component name = minecraft.level != null ? minecraft.level.getBlockState(pos).getBlock().getName() : Component.empty();
+            rows.add(new TextButton(0, Component.translatable("hibiscusfaultline.build.linked", name, pos.getX(), pos.getY(), pos.getZ()),
+                    button -> BuildOperation.unlink(pos)).withTooltip(Component.translatable("hibiscusfaultline.build.linked.unlink")));
         }
-        int right = BuildHud.slotX(this.width) - 4;
-        int bottom = BuildHud.slotY(this.height) + CELL;
+        if (tool == BuildTool.SET) {
+            Component block = BuildOperation.setBlock().map(holder -> holder.value().getName())
+                    .orElse(Component.translatable("hibiscusfaultline.build.block.none"));
+            rows.add(new TextButton(0, Component.translatable("hibiscusfaultline.build.block", block),
+                    button -> minecraft.gui.setScreen(new BlockPickerScreen())));
+        }
         boolean creative = minecraft.player != null && minecraft.player.isCreative();
-        for (int i = 0; i < options.size(); i++) {
-            BuildOption option = options.get(i);
-            int y = bottom - (options.size() - i) * (OPTION_HEIGHT + OPTION_GAP) + OPTION_GAP;
-            ToggleButton button = new ToggleButton(right - width, y, width, option.displayName(),
-                    BuildClient.option(option), value -> BuildClient.setOption(option, value));
+        for (BuildOption option : tool.options()) {
+            ToggleButton button = new ToggleButton(0, 0, 0, label(tool, option), BuildClient.option(option), value -> {
+                BuildClient.setOption(option, value);
+                if (option == BuildOption.MASK || option == BuildOption.REPLACE) {
+                    rebuildWidgets();
+                }
+            });
             if (option.creativeOnly() && !creative) {
                 button.active = false;
                 button.withTooltip(Component.translatable("hibiscusfaultline.build.option.creative_only"));
             }
-            addRenderableWidget(button);
+            rows.add(button);
         }
+
+        int width = OPTION_MIN_WIDTH;
+        for (AbstractWidget row : rows) {
+            // Toggles and buttons need about 30 px beside the label.
+            width = Math.max(width, font.width(row.getMessage()) + 30);
+        }
+        int right = BuildHud.slotX(this.width) - 4;
+        int y = BuildHud.slotY(this.height) + CELL - rows.size() * (OPTION_HEIGHT + OPTION_GAP) + OPTION_GAP;
+        for (AbstractWidget row : rows) {
+            row.setRectangle(width, OPTION_HEIGHT, right - width, y);
+            addRenderableWidget(row);
+            y += OPTION_HEIGHT + OPTION_GAP;
+        }
+    }
+
+    /** The option's name, with the mask block for Mask and Replace once one is set. */
+    private static Component label(BuildTool tool, BuildOption option) {
+        if (option == BuildOption.MASK || option == BuildOption.REPLACE) {
+            return BuildOperation.mask(tool)
+                    .<Component>map(block -> Component.translatable("hibiscusfaultline.build.option.with_mask", option.displayName(), block.value().getName()))
+                    .orElse(option.displayName());
+        }
+        return option.displayName();
     }
 
     @Override

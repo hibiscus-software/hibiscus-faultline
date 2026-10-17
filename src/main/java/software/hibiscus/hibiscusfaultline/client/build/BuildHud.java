@@ -26,6 +26,7 @@ import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.client.FaultlineKeys;
 import software.hibiscus.hibiscusfaultline.client.build.FaultlineTheme.MouseHint;
 import software.hibiscus.hibiscusfaultline.config.ClientConfig;
+import software.hibiscus.hibiscusfaultline.network.BuildProgressPayload;
 import org.jspecify.annotations.Nullable;
 
 /** The tool slot beside the hotbar, the active tool's name and hints, and the selection readouts. */
@@ -42,6 +43,8 @@ final class BuildHud {
     /** How far above the bottom of the screen the readout sits: clear of the hotbar, health, hunger and armour. */
     private static final int READOUT_RISE = 72;
     private static final int KEYS_RISE = 30;
+    private static final int PROGRESS_WIDTH = 120;
+    private static final int PROGRESS_HEIGHT = 3;
 
     private BuildHud() {}
 
@@ -71,6 +74,7 @@ final class BuildHud {
             int hintsRight = drawContextHints(graphics, font);
             drawMaterials(graphics, font, hintsRight + 12);
             drawReadout(graphics, font);
+            drawProgress(graphics, font);
             drawKeys(graphics, font);
         }
     }
@@ -98,6 +102,16 @@ final class BuildHud {
         BuildBox box = Selection.box();
         SelectionInput.Kind hovered = SelectionInput.hover().kind();
         List<Hint> hints = new ArrayList<>();
+        if (BuildOperation.running()) {
+            hints.add(hint(MouseHint.LEFT, BuildOperation.paused() ? "stop" : "pause"));
+            if (BuildOperation.paused()) {
+                hints.add(hint(MouseHint.RIGHT, "resume"));
+            }
+            return hints;
+        }
+        if (Minecraft.getInstance().hasShiftDown()) {
+            hints.add(hint(MouseHint.RIGHT, "link"));
+        }
         if (box == null) {
             hints.add(hint(MouseHint.LEFT, Selection.first() == null ? "first_point" : "second_point"));
             return hints;
@@ -119,6 +133,9 @@ final class BuildHud {
         }
         boolean moveTo = destinationTool && (Selection.pending() || !BuildClient.option(BuildOption.MIDDLE_EXTEND));
         hints.add(hint(MouseHint.MIDDLE, moveTo ? "move_to" : "extend_to"));
+        if (!Minecraft.getInstance().hasShiftDown() && (!destinationTool || Selection.pending())) {
+            hints.add(hint(MouseHint.RIGHT, "confirm"));
+        }
         return hints;
     }
 
@@ -162,6 +179,29 @@ final class BuildHud {
             graphics.text(font, text, x, y, colours[i], true);
             x += font.width(text);
         }
+    }
+
+    /** A bar above the readout while an operation runs: blocks done of the total, and the time left or why it's paused. */
+    private static void drawProgress(GuiGraphicsExtractor graphics, Font font) {
+        BuildProgressPayload progress = BuildOperation.progress();
+        if (progress == null) {
+            return;
+        }
+        Component status = switch (progress.state()) {
+            case BuildProgressPayload.PAUSED -> Component.translatable("hibiscusfaultline.build.progress.paused");
+            case BuildProgressPayload.OUT_OF_REACH -> Component.translatable("hibiscusfaultline.build.progress.out_of_reach");
+            default -> Component.translatable("hibiscusfaultline.build.progress.time", String.format("%.0f", Math.ceil(progress.ticksLeft() / 20.0)));
+        };
+        Component text = Component.translatable("hibiscusfaultline.build.progress", progress.done(), progress.total(), status);
+        int width = Math.max(PROGRESS_WIDTH, font.width(text));
+        int x = (graphics.guiWidth() - width) / 2;
+        int y = graphics.guiHeight() - READOUT_RISE - font.lineHeight - PROGRESS_HEIGHT - 6;
+        graphics.text(font, text, (graphics.guiWidth() - font.width(text)) / 2, y, FaultlineTheme.text(), true);
+        int barY = y + font.lineHeight + 1;
+        int filled = progress.total() > 0 ? (int) ((long) width * progress.done() / progress.total()) : 0;
+        graphics.fill(x - 1, barY - 1, x + width + 1, barY + PROGRESS_HEIGHT + 1, FaultlineTheme.backdrop());
+        int colour = progress.state() == BuildProgressPayload.RUNNING ? FaultlineTheme.tool(BuildClient.tool()) : FaultlineTheme.textMuted();
+        graphics.fill(x, barY, x + filled, barY + PROGRESS_HEIGHT, colour);
     }
 
     /** The rotate and flip keys, in the bottom right corner, whenever a Move or Clone selection exists. */

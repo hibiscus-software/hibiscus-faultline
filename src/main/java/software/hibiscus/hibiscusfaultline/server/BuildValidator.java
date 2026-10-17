@@ -31,6 +31,7 @@ import software.hibiscus.hibiscusfaultline.build.BuildRequest;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
 import software.hibiscus.hibiscusfaultline.selection.FaultlineTags;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Checks a build operation against the world as the server sees it. Reads only; nothing here changes the world, so
@@ -45,41 +46,58 @@ public final class BuildValidator {
 
     public static BuildPreview preview(ServerPlayer player, int requestId, BuildRequest request) {
         boolean creative = player.isCreative();
+        long volume = request.box().volume();
+        Optional<Component> limits = checkLimits(player, request, creative);
+        if (limits.isPresent()) {
+            return problem(requestId, volume, limits.get());
+        }
+        switch (request.tool()) {
+            case ERASE -> {
+                return BuildPlan.erase(player, request, creative).preview(requestId, volume);
+            }
+            case SET -> {
+                return BuildPlan.set(player, request, creative).preview(requestId, volume);
+            }
+            case MOVE, CLONE -> {
+                Scan scan = new Scan(ServerConfig.buildGhostPreviewLimit());
+                // Until a destination is placed there is nothing to move onto, only the limits above to check.
+                if (!request.transform().isIdentity()) {
+                    scanTransfer(player, player.level(), request, creative, scan);
+                }
+                return scan.finish(requestId, volume, player, creative, request.has(BuildOption.PARTIAL));
+            }
+            default -> {
+                // Stack's geometry depends on its count and gap, which arrive with the tool itself.
+                return problem(requestId, volume, null);
+            }
+        }
+    }
+
+    /**
+     * The checks every operation passes before anything else: permission, game mode, volume, reach and loaded chunks.
+     * {@return why the operation can't run, if it can't}
+     */
+    public static Optional<Component> checkLimits(ServerPlayer player, BuildRequest request, boolean creative) {
         BuildBox box = request.box();
         BuildBox target = request.target();
         long volume = box.volume();
-
         if (player.isSpectator() || !BuildPermissions.canUse(player, request.tool())) {
-            return problem(requestId, volume, Component.translatable("hibiscusfaultline.build.problem.no_permission"));
+            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.no_permission"));
         }
         long limit = maxVolume(player, creative);
         if (volume > limit) {
-            return problem(requestId, volume, Component.translatable("hibiscusfaultline.build.problem.too_big", volume, limit));
+            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.too_big", volume, limit));
         }
         int reach = ServerConfig.buildMaxDistance(creative);
         Vec3 eye = player.getEyePosition();
         if (box.distanceTo(eye) > reach || target.distanceTo(eye) > reach) {
-            return problem(requestId, volume, Component.translatable("hibiscusfaultline.build.problem.too_far", reach));
+            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.too_far", reach));
         }
         ServerLevel level = player.level();
         if (!level.hasChunksAt(box.min(), box.max()) || !level.hasChunksAt(target.min(), target.max())) {
-            return problem(requestId, volume, Component.translatable("hibiscusfaultline.build.problem.not_loaded"));
+            return Optional.of(Component.translatable("hibiscusfaultline.build.problem.not_loaded"));
         }
-
-        Scan scan = new Scan(ServerConfig.buildGhostPreviewLimit());
-        switch (request.tool()) {
-            case MOVE, CLONE -> {
-                // Until a destination is placed there is nothing to move onto, only the limits above to check.
-                if (!request.transform().isIdentity()) {
-                    scanTransfer(player, level, request, creative, scan);
-                }
-            }
-            case ERASE -> scanErase(player, level, box, scan);
-            case STACK, SET -> {
-                // Their geometry and materials depend on choices made with the tool itself; checked once those exist.
-            }
-        }
-        return scan.finish(requestId, volume, player, creative, request.has(BuildOption.PARTIAL));
+        return Optional.empty();
     }
 
     /** {@return the volume limit, from the permission node if a permissions mod sets one, otherwise the config} */
@@ -93,11 +111,6 @@ public final class BuildValidator {
         return state.getDestroySpeed(level, pos) < 0 || state.is(FaultlineTags.BUILD_IMMOVABLE);
     }
 
-    /** Vanilla's own limits on editing a position: build height, the world border and spawn protection. */
-    private static boolean mayEdit(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        return !level.isOutsideBuildHeight(pos) && level.mayInteract(player, pos);
-    }
-
     private static void scanTransfer(ServerPlayer player, ServerLevel level, BuildRequest request, boolean creative, Scan scan) {
         boolean move = request.tool() == BuildTool.MOVE;
         boolean takeAir = request.has(move ? BuildOption.MOVE_AIR : BuildOption.COPY_AIR);
@@ -109,7 +122,7 @@ public final class BuildValidator {
                 continue;
             }
             BlockPos dest = request.transform().apply(box, pos);
-            if (!mayEdit(player, level, dest) || (move && (!mayEdit(player, level, pos) || isImmovable(level, pos, state)))) {
+            if (!BuildPlan.mayEdit(player, level, dest) || (move && (!BuildPlan.mayEdit(player, level, pos) || isImmovable(level, pos, state)))) {
                 scan.skip(dest);
                 continue;
             }
@@ -134,17 +147,8 @@ public final class BuildValidator {
         }
     }
 
-    private static void scanErase(ServerPlayer player, ServerLevel level, BuildBox box, Scan scan) {
-        for (BlockPos pos : box.positions()) {
-            BlockState state = level.getBlockState(pos);
-            if (!state.isAir() && (!mayEdit(player, level, pos) || isImmovable(level, pos, state))) {
-                scan.skip(pos);
-            }
-        }
-    }
-
-    private static BuildPreview problem(int requestId, long volume, Component message) {
-        return new BuildPreview(requestId, Optional.of(message), volume, List.of(), new long[0]);
+    private static BuildPreview problem(int requestId, long volume, @Nullable Component message) {
+        return new BuildPreview(requestId, Optional.ofNullable(message), volume, List.of(), new long[0]);
     }
 
     /** What a scan found: positions to skip, and every block that has to be paid for, with its destination. */
@@ -173,7 +177,11 @@ public final class BuildValidator {
             if (creative || needed.isEmpty()) {
                 return new BuildPreview(requestId, Optional.empty(), volume, List.of(), skipped.toLongArray());
             }
-            Object2IntMap<Item> have = BuildMaterials.available(player);
+            BuildSources sources = new BuildSources(player);
+            Object2IntMap<Item> have = new Object2IntLinkedOpenHashMap<>();
+            for (Item item : needed.keySet()) {
+                have.put(item, sources.count(item));
+            }
             List<BuildPreview.MaterialLine> lines = new ArrayList<>();
             boolean isShort = false;
             for (Object2IntMap.Entry<Item> entry : needed.object2IntEntrySet()) {

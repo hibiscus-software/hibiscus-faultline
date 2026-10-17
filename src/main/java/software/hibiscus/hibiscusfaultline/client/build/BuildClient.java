@@ -30,7 +30,9 @@ import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.client.FaultlineKeys;
 import software.hibiscus.hibiscusfaultline.config.ClientConfig;
 import software.hibiscus.hibiscusfaultline.network.BuildAccessPayload;
+import software.hibiscus.hibiscusfaultline.network.BuildLinkedPayload;
 import software.hibiscus.hibiscusfaultline.network.BuildPreviewPayload;
+import software.hibiscus.hibiscusfaultline.network.BuildProgressPayload;
 
 /**
  * The build tool slot on the client. While the slot is active the mouse drives the tool instead of the held item:
@@ -91,8 +93,11 @@ public final class BuildClient {
             return;
         }
         active = value;
-        if (!value && Minecraft.getInstance().gui.screen() instanceof PaletteScreen palette) {
-            palette.onClose();
+        if (!value) {
+            BuildOperation.onLeaveSlot();
+            if (Minecraft.getInstance().gui.screen() instanceof PaletteScreen palette) {
+                palette.onClose();
+            }
         }
     }
 
@@ -119,6 +124,9 @@ public final class BuildClient {
 
     public static void setOption(BuildOption option, boolean value) {
         options.set(tool, option, value);
+        if (value) {
+            BuildOperation.captureMask(tool, option);
+        }
         ClientConfig.BUILD_OPTIONS.set(options.write());
         ClientConfig.BUILD_OPTIONS.save();
     }
@@ -129,6 +137,8 @@ public final class BuildClient {
 
     private static void registerPayloads(RegisterClientPayloadHandlersEvent event) {
         event.register(BuildPreviewPayload.TYPE, (payload, context) -> PreviewSync.receive(payload.preview()));
+        event.register(BuildProgressPayload.TYPE, (payload, context) -> BuildOperation.receive(payload));
+        event.register(BuildLinkedPayload.TYPE, (payload, context) -> BuildOperation.receiveLinked(payload.containers()));
         event.register(BuildAccessPayload.TYPE, (payload, context) -> {
             toolMask = payload.toolMask();
             if (!allowed(tool)) {
@@ -173,10 +183,15 @@ public final class BuildClient {
             }
         }
         while (settings.keyAttack.consumeClick()) {
-            SelectionInput.leftClick();
+            if (BuildOperation.running()) {
+                BuildOperation.leftClick();
+            } else {
+                SelectionInput.leftClick();
+            }
         }
-        // Confirming arrives with the operations themselves; until then a right-click only stays away from vanilla.
-        drain(settings.keyUse);
+        while (settings.keyUse.consumeClick()) {
+            BuildOperation.rightClick();
+        }
         while (settings.keyPickItem.consumeClick()) {
             SelectionInput.middleClick();
         }
@@ -257,6 +272,7 @@ public final class BuildClient {
         toolMask = 0;
         Selection.clear();
         PreviewSync.clear();
+        BuildOperation.reset();
     }
 
     /** Changing dimension (or respawning) recreates the player; a selection from the old world means nothing here. */
@@ -271,7 +287,7 @@ public final class BuildClient {
      */
     private static void onScreenOpening(ScreenEvent.Opening event) {
         if (active && event.getNewScreen() instanceof PauseScreen && InputConstants.isKeyDown(InputConstants.KEY_ESCAPE)
-                && SelectionInput.back()) {
+                && (BuildOperation.stop() || SelectionInput.back())) {
             event.setCanceled(true);
         }
     }

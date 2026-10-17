@@ -14,6 +14,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import software.hibiscus.hibiscusfaultline.config.ServerConfig;
+import software.hibiscus.hibiscusfaultline.gametest.FaultlineGameTests;
 import software.hibiscus.hibiscusfaultline.network.FaultlineNetwork;
 import software.hibiscus.hibiscusfaultline.server.BuildServer;
 import software.hibiscus.hibiscusfaultline.server.VeinMineHandler;
@@ -29,6 +30,7 @@ public final class HibiscusFaultline {
         modBus.addListener(FaultlineNetwork::register);
         VeinMineHandler.register(NeoForge.EVENT_BUS);
         BuildServer.register(modBus, NeoForge.EVENT_BUS);
+        FaultlineGameTests.register(modBus);
     }
 
     /**

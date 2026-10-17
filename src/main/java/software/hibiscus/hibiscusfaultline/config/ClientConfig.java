@@ -72,6 +72,7 @@ public final class ClientConfig {
     public static final ModConfigSpec.BooleanValue BUILD_HINTS;
     public static final ModConfigSpec.BooleanValue BUILD_GHOSTS;
     public static final ModConfigSpec.ConfigValue<String> BUILD_LAST_TOOL;
+    public static final ModConfigSpec.ConfigValue<String> BUILD_SET_BLOCK;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BUILD_OPTIONS;
 
     static {
@@ -88,6 +89,10 @@ public final class ClientConfig {
                 .comment("The build tool used last. Written by the game.")
                 .translation(key("buildTools.lastTool"))
                 .define("lastTool", "move");
+        BUILD_SET_BLOCK = BUILDER
+                .comment("The block Set fills with, picked in the game. Empty uses the block in your offhand.")
+                .translation(key("buildTools.setBlock"))
+                .define("setBlock", "");
         BUILD_OPTIONS = BUILDER
                 .comment("Each build tool's options, as tool.option=true or false. Written by the game.")
                 .translation(key("buildTools.options"))

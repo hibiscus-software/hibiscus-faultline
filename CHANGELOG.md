@@ -36,6 +36,23 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 - `buildTools.maxVolume`, `maxVolumeCreative`, `maxDistance`, `maxDistanceCreative` and `ghostPreviewLimit` server
   options, a `buildTools.ghosts` client option, and the `hibiscusfaultline:build_immovable` block tag (spawners, trial
   spawners, vaults and reinforced deepslate).
+- Erase and Set run: right-click confirms. In survival, Erase breaks blocks over time (their real mining time with
+  the best tool you carry, times `eraseTimeMultiplier`, several at once with the crack animation), drops go to your
+  inventory, block entity contents come with them, and each block costs the same hunger as vein mining; it stops when
+  you're out of food. Blocks you can't harvest are skipped unless `eraseWithoutTool` is on. Set takes one item per
+  block, breaks whatever is in the way the same way first, and has Air Only, Replace, Hollow and Walls. Pick its block
+  from the options panel (searchable; every block in creative) or hold one in your offhand. Mask and Replace use the
+  block in your offhand or the one you were looking at when you turned them on.
+- Left-click pauses a running operation and a second left-click stops it; right-click resumes, Escape stops, and
+  leaving the tool slot or walking out of reach pauses. A progress bar shows blocks done and time left.
+- Shift + right-click a container with the tool slot active to link it as an extra material source and place for
+  drops; linked containers are listed in the options panel, click one to unlink it.
+- Every break and place fires the same protection events vanilla does, so claim mods can deny positions; denied ones
+  are skipped and counted. `faultline.build.bypass_protection` skips the events.
+- Creative: no materials, no drops (contents are deleted with their block), no hunger and no break time.
+- `buildTools.blocksPerTick`, `eraseTimeMultiplier`, `eraseParallel`, `eraseWithoutTool`, `maxLinkedContainers`,
+  `linkRange` and `overflow` server options.
+- Gametests for Erase and Set (`./gradlew runGameTestServer`).
 - `buildTools.enabled` server option and `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`,
   `.max_volume` and `.bypass_protection` permission nodes.
 

@@ -6,8 +6,6 @@
 
 package software.hibiscus.hibiscusfaultline.build;
 
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -70,25 +68,6 @@ public final class BuildMaterials {
         ItemStack clone = state.getCloneItemStack(pos, level, false, player);
         Item item = clone.isEmpty() ? state.getBlock().asItem() : clone.getItem();
         return item == Items.AIR ? null : item;
-    }
-
-    /**
-     * Counts the items the player can pay with: the main inventory and the offhand, never worn armour. Only plain
-     * stacks count, so a renamed, enchanted or filled item (a shulker box with contents, say) is never spent.
-     */
-    public static Object2IntMap<Item> available(Player player) {
-        Object2IntMap<Item> counts = new Object2IntOpenHashMap<>();
-        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
-            count(counts, stack);
-        }
-        count(counts, player.getOffhandItem());
-        return counts;
-    }
-
-    private static void count(Object2IntMap<Item> counts, ItemStack stack) {
-        if (isSpendable(stack)) {
-            counts.mergeInt(stack.getItem(), stack.getCount(), Integer::sum);
-        }
     }
 
     public static boolean isSpendable(ItemStack stack) {

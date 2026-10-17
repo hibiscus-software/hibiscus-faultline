@@ -19,58 +19,40 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-17
+
 ### Added
 
-- A build tool slot to the right of the hotbar, the start of the Move, Clone, Stack, Erase and Set build tools. Ctrl +
-  scroll past either end of the hotbar (or the new, unbound "Toggle Build Tool Slot" key) enters it; while it's active,
-  clicks drive the tool instead of the held item. Hold Alt for the tool palette and each tool's options; Alt + scroll
-  changes tool. The tools don't change the world yet.
-- Selections for the build tools: left-click two corners; then click a block outside the box to extend it, scroll
-  over a face to push or pull it, or middle-click to extend to the looked-at block. Size readout at the bottom of the
-  screen, mouse hints under the crosshair, Escape steps back.
-- Move and Clone destinations: drag the gizmo above the selection, scroll to move along the looked-at axis,
-  middle-click for Move To, Ctrl+R to rotate and Ctrl+F to flip. Ghost blocks show the result, with an Offset readout.
-- The server checks every preview (permission, volume, reach, unbreakable and `hibiscusfaultline:build_immovable`
-  blocks, spawn protection and the world border) and sends back a bill of materials for Clone: what it needs, what you
-  have, and the positions it would skip, shown in red.
-- `buildTools.maxVolume`, `maxVolumeCreative`, `maxDistance`, `maxDistanceCreative` and `ghostPreviewLimit` server
-  options, a `buildTools.ghosts` client option, and the `hibiscusfaultline:build_immovable` block tag (spawners, trial
-  spawners, vaults and reinforced deepslate).
-- Erase and Set run: right-click confirms. In survival, Erase breaks blocks over time (their real mining time with
-  the best tool you carry, times `eraseTimeMultiplier`, several at once with the crack animation), drops go to your
-  inventory, block entity contents come with them, and each block costs the same hunger as vein mining; it stops when
-  you're out of food. Blocks you can't harvest are skipped unless `eraseWithoutTool` is on. Set takes one item per
-  block, breaks whatever is in the way the same way first, and has Air Only, Replace, Hollow and Walls. Pick its block
-  from the options panel (searchable; every block in creative) or hold one in your offhand. Mask and Replace use the
-  block in your offhand or the one you were looking at when you turned them on.
-- Left-click pauses a running operation and a second left-click stops it; right-click resumes, Escape stops, and
-  leaving the tool slot or walking out of reach pauses. A progress bar shows blocks done and time left.
-- Shift + right-click a container with the tool slot active to link it as an extra material source and place for
-  drops; linked containers are listed in the options panel, click one to unlink it.
-- Every break and place fires the same protection events vanilla does, so claim mods can deny positions; denied ones
-  are skipped and counted. `faultline.build.bypass_protection` skips the events.
-- Creative: no materials, no drops (contents are deleted with their block), no hunger and no break time.
-- `buildTools.blocksPerTick`, `eraseTimeMultiplier`, `eraseParallel`, `eraseWithoutTool`, `maxLinkedContainers`,
-  `linkRange` and `overflow` server options.
-- Move, Clone and Stack run. Move lifts the selection and puts it down at the destination: blocks keep their block
-  entities (a chest keeps its items, a machine its state), nothing drops and lifted blocks cost no hunger or time;
-  occupied destinations are broken first like Erase, or with Keep Existing the block that would land there stays put.
-  Move Entities brings item frames, armour stands, paintings and mobs (any non-player entity in creative) along, turned
-  like the blocks. Clone copies block states only, one matching item per block, so a chest arrives empty; Copy Air and
-  Copy Entities (creative) are options. Stack repeats the selection: scroll for the number of copies, Shift + scroll for
-  the gap, in the direction you look when adding the first; each copy costs like Clone. After a Move the selection
-  follows the blocks.
-- `buildTools.maxStack` and `buildTools.creativeCloneContents` server options.
-- Undo and redo (Ctrl+Z / Ctrl+Y in the tool slot). Survival undo refunds what was placed and puts back what was
-  erased only if you can pay for it again; creative undo just restores. Undo only touches positions still as the
-  operation left them, fires the same protection events, and follows the rules the operation ran under. Kept for the
-  session: `buildTools.undoDepth`, `undoDepthCreative` and `undoMaxBlocks`.
+- **Build tools**: Move, Clone, Stack, Erase and Set, in a tool slot to the right of the hotbar. Ctrl + scroll past
+  either end of the hotbar (or the unbound "Toggle Build Tool Slot" key) to enter it; while it's active your clicks
+  drive the tool instead of the held item. Hold Alt for the tool palette and each tool's options, and Alt + scroll to
+  change tool. Survival friendly: blocks come from and go to your inventory, nothing is free and nothing dupes.
+- **Selections**: left-click two corners, then click a block outside the box to extend it, scroll over a face to push
+  or pull it, or middle-click to extend to the looked-at block. A coloured Size readout, mouse hints under the
+  crosshair, and Escape to step back.
+- **Previews**: ghost blocks show where Move, Clone and Stack put things, positions that will be skipped show in red,
+  and a bill of materials shows what an operation needs against what you have. The server checks every preview.
+- **Move** lifts the selection and puts it down elsewhere: drag the gizmo, scroll to move along the axis you look
+  along, middle-click for Move To, Ctrl+R to rotate and Ctrl+F to flip. Chests keep their items and machines their
+  state, and nothing drops. Move Entities brings item frames, armour stands, paintings and mobs along.
+- **Clone** copies block states for one matching item each; a chest arrives empty. **Stack** repeats the selection:
+  scroll for the number of copies and Shift + scroll for the gap.
+- **Erase** removes the selection as if mined: in survival each block takes its real mining time with the best tool
+  you carry (halved by default), drops go to your inventory, and it costs the same hunger as vein mining. **Set**
+  fills it with one block, picked from a searchable list or held in your offhand, with Air Only, Replace, Hollow and
+  Walls. Anything the tools break in the way pays the same time and hunger.
+- Right-click confirms; left-click pauses and a second left-click stops; a progress bar shows blocks done and time
+  left. Shift + right-click links a container as an extra material source.
+- Every break and place asks protection mods first, as vanilla does. Unbreakable blocks and the new
+  `hibiscusfaultline:build_immovable` tag (spawners, trial spawners, vaults, reinforced deepslate) are never touched.
+- **Creative**: no materials, no drops, no hunger and no break time; Set lists every block; bigger limits.
+- **Undo and redo** with Ctrl+Z and Ctrl+Y. Survival undo refunds what was placed and puts back what was erased only
+  if you can pay for it again, and only touches positions still as the operation left them.
 - Operator commands `/faultline build cancel <player>`, `/faultline build undo <player>` and
   `/faultline build limits [player]`.
-- Client options to move the tool slot and set the gizmo's sensitivity.
-- Gametests for Erase, Set, Move, Clone and Stack (`./gradlew runGameTestServer`).
-- `buildTools.enabled` server option and `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`,
-  `.max_volume` and `.bypass_protection` permission nodes.
+- Permission nodes `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`, `.max_volume` and
+  `.bypass_protection`, and a `buildTools` section in the server and client configs for every limit and setting (see
+  the README).
 
 ### Fixed
 
@@ -106,5 +88,6 @@ The first release of Hibiscus Faultline, for Minecraft 26.3 on NeoForge 26.3.0.2
   `hibiscusfaultline:excluded_tools`.
 - A mod list icon and banner.
 
-[Unreleased]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.0.0+26.3...HEAD
+[Unreleased]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.1.0+26.3...HEAD
+[1.1.0]: https://github.com/hibiscus-software/hibiscus-faultline/compare/v1.0.0+26.3...v1.1.0+26.3
 [1.0.0]: https://github.com/hibiscus-software/hibiscus-faultline/commits/v1.0.0+26.3

@@ -83,6 +83,11 @@ public final class ServerConfig {
     private static final Map<String, ModConfigSpec.BooleanValue> MODE_ENABLED = new LinkedHashMap<>();
 
     public static final ModConfigSpec.BooleanValue BUILD_ENABLED;
+    public static final ModConfigSpec.IntValue BUILD_MAX_VOLUME;
+    public static final ModConfigSpec.IntValue BUILD_MAX_VOLUME_CREATIVE;
+    public static final ModConfigSpec.IntValue BUILD_MAX_DISTANCE;
+    public static final ModConfigSpec.IntValue BUILD_MAX_DISTANCE_CREATIVE;
+    public static final ModConfigSpec.IntValue BUILD_GHOST_PREVIEW_LIMIT;
 
     static {
         BUILDER.comment("Which modes players can pick.").translation(key("modes")).push("modes");
@@ -99,6 +104,26 @@ public final class ServerConfig {
                 .comment("Let players use the build tool slot. The faultline.build.use permission node can still turn it off per player.")
                 .translation(key("buildTools.enabled"))
                 .define("enabled", true);
+        BUILD_MAX_VOLUME = BUILDER
+                .comment("Most blocks one build operation can cover in survival. The faultline.build.max_volume permission overrides it per player.")
+                .translation(key("buildTools.maxVolume"))
+                .defineInRange("maxVolume", 4096, 1, 1_000_000);
+        BUILD_MAX_VOLUME_CREATIVE = BUILDER
+                .comment("Most blocks one build operation can cover in creative. The faultline.build.max_volume permission overrides it per player.")
+                .translation(key("buildTools.maxVolumeCreative"))
+                .defineInRange("maxVolumeCreative", 65536, 1, 1_000_000);
+        BUILD_MAX_DISTANCE = BUILDER
+                .comment("How far from the player, in blocks, a selection or destination may be in survival.")
+                .translation(key("buildTools.maxDistance"))
+                .defineInRange("maxDistance", 64, 1, 512);
+        BUILD_MAX_DISTANCE_CREATIVE = BUILDER
+                .comment("How far from the player, in blocks, a selection or destination may be in creative.")
+                .translation(key("buildTools.maxDistanceCreative"))
+                .defineInRange("maxDistanceCreative", 256, 1, 512);
+        BUILD_GHOST_PREVIEW_LIMIT = BUILDER
+                .comment("Most blocks drawn as ghost blocks in a preview. Bigger operations show only their outline.")
+                .translation(key("buildTools.ghostPreviewLimit"))
+                .defineInRange("ghostPreviewLimit", 4096, 0, 65536);
         BUILDER.pop();
     }
 
@@ -135,6 +160,18 @@ public final class ServerConfig {
 
     public static boolean buildToolsEnabled() {
         return read(BUILD_ENABLED);
+    }
+
+    public static int buildMaxVolume(boolean creative) {
+        return read(creative ? BUILD_MAX_VOLUME_CREATIVE : BUILD_MAX_VOLUME);
+    }
+
+    public static int buildMaxDistance(boolean creative) {
+        return read(creative ? BUILD_MAX_DISTANCE_CREATIVE : BUILD_MAX_DISTANCE);
+    }
+
+    public static int buildGhostPreviewLimit() {
+        return read(BUILD_GHOST_PREVIEW_LIMIT);
     }
 
     private static <T> T read(ModConfigSpec.ConfigValue<T> value) {

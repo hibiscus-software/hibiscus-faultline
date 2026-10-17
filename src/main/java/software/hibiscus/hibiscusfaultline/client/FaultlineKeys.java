@@ -10,6 +10,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
+import net.neoforged.neoforge.client.settings.KeyModifier;
 import software.hibiscus.hibiscusfaultline.HibiscusFaultline;
 
 public final class FaultlineKeys {
@@ -31,11 +32,31 @@ public final class FaultlineKeys {
             InputConstants.UNKNOWN.getValue(),
             CATEGORY);
 
+    /** Turns a Move or Clone destination a quarter turn clockwise. Ctrl+R by default. */
+    public static final KeyMapping ROTATE = new KeyMapping(
+            "key.hibiscusfaultline.build_rotate",
+            KeyConflictContext.IN_GAME,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_R,
+            CATEGORY);
+
+    /** Flips a Move or Clone destination along the axis the player faces. Ctrl+F by default. */
+    public static final KeyMapping FLIP = new KeyMapping(
+            "key.hibiscusfaultline.build_flip",
+            KeyConflictContext.IN_GAME,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_F,
+            CATEGORY);
+
     private FaultlineKeys() {}
 
     static void register(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORY);
         event.register(ACTIVATE);
         event.register(TOGGLE_BUILD_SLOT);
+        event.register(ROTATE);
+        event.register(FLIP);
     }
 }

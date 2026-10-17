@@ -6,6 +6,7 @@
 
 package software.hibiscus.hibiscusfaultline.client.build;
 
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.DeltaTracker;
@@ -14,14 +15,20 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.HumanoidArm;
+import software.hibiscus.hibiscusfaultline.build.BuildBox;
+import software.hibiscus.hibiscusfaultline.build.BuildOption;
+import software.hibiscus.hibiscusfaultline.build.BuildPreview;
 import software.hibiscus.hibiscusfaultline.build.BuildTool;
+import software.hibiscus.hibiscusfaultline.client.FaultlineKeys;
 import software.hibiscus.hibiscusfaultline.client.build.FaultlineTheme.MouseHint;
 import software.hibiscus.hibiscusfaultline.config.ClientConfig;
 import org.jspecify.annotations.Nullable;
 
-/** The tool slot beside the hotbar, and the active tool's name and hints. */
+/** The tool slot beside the hotbar, the active tool's name and hints, and the selection readouts. */
 final class BuildHud {
     static final int SLOT_SIZE = 22;
     private static final int ICON_SIZE = 16;
@@ -29,6 +36,12 @@ final class BuildHud {
     private static final int MOUSE_HEIGHT = 9;
     /** Space between the hotbar (or whatever sits at its right end) and the slot. */
     private static final int GAP = 4;
+    private static final int PADDING = 4;
+    private static final int ITEM_SIZE = 16;
+    private static final int MAX_MATERIAL_LINES = 8;
+    /** How far above the bottom of the screen the readout sits: clear of the hotbar, health, hunger and armour. */
+    private static final int READOUT_RISE = 72;
+    private static final int KEYS_RISE = 30;
 
     private BuildHud() {}
 
@@ -53,8 +66,166 @@ final class BuildHud {
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, FaultlineTheme.toolIcon(tool), x + inset, y + inset, ICON_SIZE, ICON_SIZE, active ? 1.0F : 0.6F);
 
         if (active && !(minecraft.gui.screen() instanceof PaletteScreen)) {
-            drawLabel(graphics, minecraft.font, x, y, tool);
+            Font font = minecraft.font;
+            drawLabel(graphics, font, x, y, tool);
+            int hintsRight = drawContextHints(graphics, font);
+            drawMaterials(graphics, font, hintsRight + 12);
+            drawReadout(graphics, font);
+            drawKeys(graphics, font);
         }
+    }
+
+    /** The hints for what the mouse does right now, just under the crosshair. {@return the right edge of the block} */
+    private static int drawContextHints(GuiGraphicsExtractor graphics, Font font) {
+        int centreX = graphics.guiWidth() / 2;
+        int y = graphics.guiHeight() / 2 + 10;
+        if (!ClientConfig.BUILD_HINTS.get()) {
+            return centreX;
+        }
+        List<Hint> hints = contextHints();
+        int width = 0;
+        for (Hint hint : hints) {
+            width = Math.max(width, hintWidth(font, hint));
+        }
+        int x = centreX - width / 2;
+        for (int i = 0; i < hints.size(); i++) {
+            drawHint(graphics, font, hints.get(i), x, y + i * (font.lineHeight + 1), FaultlineTheme.text());
+        }
+        return x + width;
+    }
+
+    static List<Hint> contextHints() {
+        BuildBox box = Selection.box();
+        SelectionInput.Kind hovered = SelectionInput.hover().kind();
+        List<Hint> hints = new ArrayList<>();
+        if (box == null) {
+            hints.add(hint(MouseHint.LEFT, Selection.first() == null ? "first_point" : "second_point"));
+            return hints;
+        }
+        boolean destinationTool = Selection.hasDestination(BuildClient.tool());
+        if (hovered == SelectionInput.Kind.GIZMO || SelectionInput.dragging()) {
+            hints.add(hint(MouseHint.LEFT, "drag"));
+        } else if (Selection.pending()) {
+            hints.add(hint(MouseHint.LEFT, "cancel"));
+        } else if (hovered == SelectionInput.Kind.BLOCK) {
+            hints.add(hint(MouseHint.LEFT, "extend"));
+        } else if (hovered == SelectionInput.Kind.NONE) {
+            hints.add(hint(MouseHint.LEFT, "clear"));
+        }
+        if (Selection.pending()) {
+            hints.add(hint(MouseHint.SCROLL, "scroll_move"));
+        } else if (hovered == SelectionInput.Kind.FACE) {
+            hints.add(hint(MouseHint.SCROLL, "scroll_face"));
+        }
+        boolean moveTo = destinationTool && (Selection.pending() || !BuildClient.option(BuildOption.MIDDLE_EXTEND));
+        hints.add(hint(MouseHint.MIDDLE, moveTo ? "move_to" : "extend_to"));
+        return hints;
+    }
+
+    private static Hint hint(MouseHint mouse, String key) {
+        return new Hint(mouse, Component.translatable("hibiscusfaultline.build.hint." + key));
+    }
+
+    /** "Size: X Y Z", or "Offset: X Y Z" while a destination is placed, at the bottom centre with coloured axes. */
+    private static void drawReadout(GuiGraphicsExtractor graphics, Font font) {
+        BuildBox box = Selection.box();
+        Component label;
+        int[] values;
+        if (Selection.pending()) {
+            BlockPos offset = Selection.transform().offset();
+            label = Component.translatable("hibiscusfaultline.build.readout.offset");
+            values = new int[] {offset.getX(), offset.getY(), offset.getZ()};
+        } else {
+            if (box == null) {
+                BlockPos first = Selection.first();
+                SelectionInput.Hover hover = SelectionInput.hover();
+                if (first == null) {
+                    return;
+                }
+                box = hover.kind() == SelectionInput.Kind.BLOCK ? BuildBox.of(first, hover.block()) : BuildBox.of(first, first);
+            }
+            label = Component.translatable("hibiscusfaultline.build.readout.size");
+            values = new int[] {box.sizeX(), box.sizeY(), box.sizeZ()};
+        }
+        int[] colours = {FaultlineTheme.axisX(), FaultlineTheme.axisY(), FaultlineTheme.axisZ()};
+        int width = font.width(label);
+        for (int value : values) {
+            width += font.width(" " + value);
+        }
+        int x = (graphics.guiWidth() - width) / 2;
+        int y = graphics.guiHeight() - READOUT_RISE;
+        graphics.fill(x - 2, y - 2, x + width + 2, y + font.lineHeight, FaultlineTheme.backdrop());
+        graphics.text(font, label, x, y, FaultlineTheme.readoutLabel(), true);
+        x += font.width(label);
+        for (int i = 0; i < 3; i++) {
+            String text = " " + values[i];
+            graphics.text(font, text, x, y, colours[i], true);
+            x += font.width(text);
+        }
+    }
+
+    /** The rotate and flip keys, in the bottom right corner, whenever a Move or Clone selection exists. */
+    private static void drawKeys(GuiGraphicsExtractor graphics, Font font) {
+        if (Selection.box() == null || !Selection.hasDestination(BuildClient.tool())) {
+            return;
+        }
+        List<Component> lines = List.of(
+                Component.translatable("hibiscusfaultline.build.keys.rotate", FaultlineKeys.ROTATE.getTranslatedKeyMessage()),
+                Component.translatable("hibiscusfaultline.build.keys.flip", FaultlineKeys.FLIP.getTranslatedKeyMessage()));
+        int width = 0;
+        for (Component line : lines) {
+            width = Math.max(width, font.width(line));
+        }
+        int right = graphics.guiWidth() - 2;
+        int top = graphics.guiHeight() - KEYS_RISE - lines.size() * font.lineHeight;
+        graphics.fill(right - width - 2, top - 2, right + 1, top + lines.size() * font.lineHeight, FaultlineTheme.backdrop());
+        for (int i = 0; i < lines.size(); i++) {
+            Component line = lines.get(i);
+            graphics.text(font, line, right - font.width(line), top + i * font.lineHeight, FaultlineTheme.text(), true);
+        }
+    }
+
+    /**
+     * The server's verdict beside the hints: why the operation can't run, and the bill of materials with what the
+     * player has, short lines in red.
+     */
+    private static void drawMaterials(GuiGraphicsExtractor graphics, Font font, int left) {
+        BuildPreview preview = PreviewSync.result();
+        if (preview == null || (preview.problem().isEmpty() && preview.materials().isEmpty())) {
+            return;
+        }
+        List<BuildPreview.MaterialLine> lines = preview.materials();
+        int shown = Math.min(lines.size(), MAX_MATERIAL_LINES);
+        Component problem = preview.problem().orElse(null);
+        int width = problem != null ? font.width(problem) : 0;
+        for (int i = 0; i < shown; i++) {
+            width = Math.max(width, ITEM_SIZE + 4 + font.width(materialText(lines.get(i))));
+        }
+        int height = (problem != null ? font.lineHeight + 2 : 0) + shown * ITEM_SIZE + (lines.size() > shown ? font.lineHeight : 0);
+        int x = Math.min(left, graphics.guiWidth() - width - PADDING * 2 - 2);
+        int y = graphics.guiHeight() / 2 + 6;
+        FaultlineTheme.hibiscus().panel(graphics, x, y, width + PADDING * 2, height + PADDING * 2);
+        x += PADDING;
+        y += PADDING;
+        if (problem != null) {
+            graphics.text(font, problem, x, y, FaultlineTheme.negative(), false);
+            y += font.lineHeight + 2;
+        }
+        for (int i = 0; i < shown; i++) {
+            BuildPreview.MaterialLine line = lines.get(i);
+            graphics.fakeItem(new ItemStack(line.item()), x, y);
+            graphics.text(font, materialText(line), x + ITEM_SIZE + 4, y + (ITEM_SIZE - font.lineHeight) / 2 + 1,
+                    line.isShort() ? FaultlineTheme.negative() : FaultlineTheme.text(), false);
+            y += ITEM_SIZE;
+        }
+        if (lines.size() > shown) {
+            graphics.text(font, Component.translatable("hibiscusfaultline.build.materials.more", lines.size() - shown), x, y,
+                    FaultlineTheme.textMuted(), false);
+        }
+    }
+
+    private static Component materialText(BuildPreview.MaterialLine line) {
+        return Component.translatable("hibiscusfaultline.build.materials.line", new ItemStack(line.item()).getHoverName(), line.needed(), line.have());
     }
 
     /** The tool's name and hints, beside the slot if the screen is wide enough and above it otherwise. */

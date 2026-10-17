@@ -70,6 +70,7 @@ public final class ClientConfig {
             .define("lastMode", "shapeless");
 
     public static final ModConfigSpec.BooleanValue BUILD_HINTS;
+    public static final ModConfigSpec.BooleanValue BUILD_GHOSTS;
     public static final ModConfigSpec.ConfigValue<String> BUILD_LAST_TOOL;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BUILD_OPTIONS;
 
@@ -79,6 +80,10 @@ public final class ClientConfig {
                 .comment("Show the mouse button hints next to the build tool's name.")
                 .translation(key("buildTools.hints"))
                 .define("hints", true);
+        BUILD_GHOSTS = BUILDER
+                .comment("Show where Move and Clone would put blocks as translucent ghost blocks.")
+                .translation(key("buildTools.ghosts"))
+                .define("ghosts", true);
         BUILD_LAST_TOOL = BUILDER
                 .comment("The build tool used last. Written by the game.")
                 .translation(key("buildTools.lastTool"))

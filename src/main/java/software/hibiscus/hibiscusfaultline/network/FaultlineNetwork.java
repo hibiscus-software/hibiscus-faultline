@@ -8,10 +8,11 @@ package software.hibiscus.hibiscusfaultline.network;
 
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import software.hibiscus.hibiscusfaultline.server.BuildServer;
 import software.hibiscus.hibiscusfaultline.server.VeinMineHandler;
 
 public final class FaultlineNetwork {
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
 
     private FaultlineNetwork() {}
 
@@ -21,8 +22,11 @@ public final class FaultlineNetwork {
                 (payload, context) -> VeinMineHandler.setKeyHeld(context.player(), payload.held()));
         registrar.playToServer(ModePayload.TYPE, ModePayload.STREAM_CODEC,
                 (payload, context) -> VeinMineHandler.setMode(context.player(), payload.mode()));
+        registrar.playToServer(BuildPreviewRequestPayload.TYPE, BuildPreviewRequestPayload.STREAM_CODEC,
+                (payload, context) -> BuildServer.requestPreview(context.player(), payload));
         // The client registers its handler in RegisterClientPayloadHandlersEvent, keeping client code out of here.
         registrar.playToClient(CooldownPayload.TYPE, CooldownPayload.STREAM_CODEC);
         registrar.playToClient(BuildAccessPayload.TYPE, BuildAccessPayload.STREAM_CODEC);
+        registrar.playToClient(BuildPreviewPayload.TYPE, BuildPreviewPayload.STREAM_CODEC);
     }
 }

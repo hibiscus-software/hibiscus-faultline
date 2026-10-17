@@ -17,6 +17,8 @@ public final class FaultlineTags {
     public static final TagKey<Block> EXCLUDED = TagKey.create(Registries.BLOCK, HibiscusFaultline.id("excluded"));
     /** When this tag has any entries, only these blocks can be selected. */
     public static final TagKey<Block> INCLUDED_ONLY = TagKey.create(Registries.BLOCK, HibiscusFaultline.id("included_only"));
+    /** Blocks the build tools never break, move or replace. */
+    public static final TagKey<Block> BUILD_IMMOVABLE = TagKey.create(Registries.BLOCK, HibiscusFaultline.id("build_immovable"));
     /** Holding one of these turns Faultline off. */
     public static final TagKey<Item> EXCLUDED_TOOLS = TagKey.create(Registries.ITEM, HibiscusFaultline.id("excluded_tools"));
 

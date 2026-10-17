@@ -6,9 +6,11 @@
 
 package software.hibiscus.hibiscusfaultline.client.build;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -18,6 +20,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import software.hibiscus.hibiscusfaultline.HibiscusFaultline;
@@ -27,6 +30,7 @@ import software.hibiscus.hibiscusfaultline.build.BuildTool;
 import software.hibiscus.hibiscusfaultline.client.FaultlineKeys;
 import software.hibiscus.hibiscusfaultline.config.ClientConfig;
 import software.hibiscus.hibiscusfaultline.network.BuildAccessPayload;
+import software.hibiscus.hibiscusfaultline.network.BuildPreviewPayload;
 
 /**
  * The build tool slot on the client. While the slot is active the mouse drives the tool instead of the held item:
@@ -50,6 +54,10 @@ public final class BuildClient {
         bus.addListener(BuildClient::onRenderHand);
         bus.addListener(BuildClient::onLoggingIn);
         bus.addListener(BuildClient::onLoggingOut);
+        bus.addListener(BuildClient::onPlayerRecreated);
+        bus.addListener(BuildClient::onScreenOpening);
+        bus.addListener(BuildClient::onTickPost);
+        bus.addListener(SelectionRenderer::submit);
     }
 
     public static boolean isActive() {
@@ -62,6 +70,10 @@ public final class BuildClient {
 
     public static boolean option(BuildOption option) {
         return options.get(tool, option);
+    }
+
+    public static int optionMask(BuildTool forTool) {
+        return options.mask(forTool);
     }
 
     /** {@return whether the slot is shown at all} False until the server says the player may use it, and for spectators. */
@@ -116,6 +128,7 @@ public final class BuildClient {
     }
 
     private static void registerPayloads(RegisterClientPayloadHandlersEvent event) {
+        event.register(BuildPreviewPayload.TYPE, (payload, context) -> PreviewSync.receive(payload.preview()));
         event.register(BuildAccessPayload.TYPE, (payload, context) -> {
             toolMask = payload.toolMask();
             if (!allowed(tool)) {
@@ -145,6 +158,9 @@ public final class BuildClient {
             setActive(!active);
         }
         if (!active || minecraft.gui.screen() != null) {
+            // Ctrl+R and Ctrl+F only mean something in the slot; don't let presses from outside it pile up.
+            drain(FaultlineKeys.ROTATE);
+            drain(FaultlineKeys.FLIP);
             return;
         }
 
@@ -156,10 +172,20 @@ public final class BuildClient {
                 return;
             }
         }
-        // No tool acts on a click without a selection yet; draining them keeps them from vanilla.
-        drain(settings.keyAttack);
+        while (settings.keyAttack.consumeClick()) {
+            SelectionInput.leftClick();
+        }
+        // Confirming arrives with the operations themselves; until then a right-click only stays away from vanilla.
         drain(settings.keyUse);
-        drain(settings.keyPickItem);
+        while (settings.keyPickItem.consumeClick()) {
+            SelectionInput.middleClick();
+        }
+        while (FaultlineKeys.ROTATE.consumeClick()) {
+            SelectionInput.rotate();
+        }
+        while (FaultlineKeys.FLIP.consumeClick()) {
+            SelectionInput.flip();
+        }
         if (minecraft.hasAltDown()) {
             minecraft.gui.setScreen(new PaletteScreen());
         }
@@ -191,6 +217,8 @@ public final class BuildClient {
                 setActive(false);
             } else if (minecraft.hasAltDown()) {
                 cycleTool(direction);
+            } else {
+                SelectionInput.scroll(direction < 0);
             }
         } else if (minecraft.hasControlDown()) {
             int last = Inventory.getSelectionSize() - 1;
@@ -227,5 +255,28 @@ public final class BuildClient {
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         active = false;
         toolMask = 0;
+        Selection.clear();
+        PreviewSync.clear();
+    }
+
+    /** Changing dimension (or respawning) recreates the player; a selection from the old world means nothing here. */
+    private static void onPlayerRecreated(ClientPlayerNetworkEvent.Clone event) {
+        Selection.clear();
+        PreviewSync.clear();
+    }
+
+    /**
+     * Escape steps back through the selection (cancel the destination, then clear the selection) before it opens the
+     * pause menu. Only a real Escape press counts: the game also pauses when the window loses focus.
+     */
+    private static void onScreenOpening(ScreenEvent.Opening event) {
+        if (active && event.getNewScreen() instanceof PauseScreen && InputConstants.isKeyDown(InputConstants.KEY_ESCAPE)
+                && SelectionInput.back()) {
+            event.setCanceled(true);
+        }
+    }
+
+    private static void onTickPost(ClientTickEvent.Post event) {
+        PreviewSync.tick();
     }
 }

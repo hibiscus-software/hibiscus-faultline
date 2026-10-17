@@ -25,6 +25,17 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
   scroll past either end of the hotbar (or the new, unbound "Toggle Build Tool Slot" key) enters it; while it's active,
   clicks drive the tool instead of the held item. Hold Alt for the tool palette and each tool's options; Alt + scroll
   changes tool. The tools don't change the world yet.
+- Selections for the build tools: left-click two corners; then click a block outside the box to extend it, scroll
+  over a face to push or pull it, or middle-click to extend to the looked-at block. Size readout at the bottom of the
+  screen, mouse hints under the crosshair, Escape steps back.
+- Move and Clone destinations: drag the gizmo above the selection, scroll to move along the looked-at axis,
+  middle-click for Move To, Ctrl+R to rotate and Ctrl+F to flip. Ghost blocks show the result, with an Offset readout.
+- The server checks every preview (permission, volume, reach, unbreakable and `hibiscusfaultline:build_immovable`
+  blocks, spawn protection and the world border) and sends back a bill of materials for Clone: what it needs, what you
+  have, and the positions it would skip, shown in red.
+- `buildTools.maxVolume`, `maxVolumeCreative`, `maxDistance`, `maxDistanceCreative` and `ghostPreviewLimit` server
+  options, a `buildTools.ghosts` client option, and the `hibiscusfaultline:build_immovable` block tag (spawners, trial
+  spawners, vaults and reinforced deepslate).
 - `buildTools.enabled` server option and `faultline.build.use`, `.move`, `.clone`, `.stack`, `.erase`, `.set`,
   `.max_volume` and `.bypass_protection` permission nodes.
 

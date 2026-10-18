@@ -391,9 +391,10 @@ final class BuildHud {
 
     /** What the mouse does right now with the active tool. */
     static List<Hint> hints() {
+        String leave = SelectionInput.wantsScroll() ? "ctrl_scroll" : "scroll_hotbar";
         return List.of(
                 new Hint(MouseHint.SCROLL, Component.translatable("hibiscusfaultline.build.hint.alt_scroll")),
-                new Hint(MouseHint.SCROLL, Component.translatable("hibiscusfaultline.build.hint.ctrl_scroll")));
+                new Hint(MouseHint.SCROLL, Component.translatable("hibiscusfaultline.build.hint." + leave)));
     }
 
     static int hintWidth(Font font, Hint hint) {

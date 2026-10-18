@@ -32,9 +32,9 @@ tree. Leaves are only taken when you start on a leaf.
 
 ## Build tools
 
-Ctrl + scroll past either end of the hotbar to enter the tool slot (or bind "Toggle Build Tool Slot"). While
-it's active your clicks drive the tool instead of the item in your hand. Ctrl + scroll again, or press a
-hotbar number, to leave. A selection belongs to its tool: switching tools, or finishing an operation, clears it.
+Scroll past either end of the hotbar to enter the tool slot, like a tenth slot (or bind "Toggle Build Tool
+Slot"). While it's active your clicks drive the tool instead of the item in your hand. Scroll on to leave, or
+once you have a selection (when the wheel belongs to the tool) Ctrl + scroll; a hotbar number also leaves. A selection belongs to its tool: switching tools, or finishing an operation, clears it.
 
 ### Controls
 
@@ -53,7 +53,7 @@ hotbar number, to leave. A selection belongs to its tool: switching tools, or fi
 | Enter | Confirm (Set, or any tool ready to run) |
 | Left-click during an operation | Pause; a second left-click stops |
 | Escape | Steps back: stop, cancel the destination or copies, clear the selection, then the pause menu |
-| Alt (hold) | Tool palette and options; Alt + scroll changes tool |
+| Alt (hold) | Tool palette and options; Alt + scroll changes tool, up the column for scroll up |
 | Shift + right-click | Link or unlink a container as a material source |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 

@@ -230,8 +230,8 @@ public final class BuildClient {
     }
 
     /**
-     * Ctrl + scroll walks along the hotbar and past either end into the tool slot, like a tenth slot. Inside the slot,
-     * Ctrl + scroll leaves it again, and the plain wheel belongs to the tool.
+     * The wheel walks along the hotbar and past either end into the tool slot, like a tenth slot, and on out again.
+     * Once there's a selection the wheel belongs to the tool, and Ctrl + scroll leaves instead.
      */
     private static void onScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -249,17 +249,19 @@ public final class BuildClient {
         boolean right = ScrollWheelHandler.getNextScrollWheelSelection(wheel, 0, size) == 1;
         Inventory inventory = player.getInventory();
         if (active) {
-            // Inside the slot the wheel never touches the hotbar; only Ctrl + scroll leaves.
             event.setCanceled(true);
-            if (minecraft.hasControlDown()) {
+            if (minecraft.hasAltDown()) {
+                // Up the column for scroll up, the way the palette is stacked.
+                cycleTool(wheel > 0 ? 1 : -1);
+            } else if (minecraft.hasControlDown() || !SelectionInput.wantsScroll()) {
+                // Without a selection the wheel has nothing to do here, so it carries on along the hotbar.
                 inventory.setSelectedSlot(right ? 0 : size - 1);
                 setActive(false);
-            } else if (minecraft.hasAltDown()) {
-                cycleTool(right ? 1 : -1);
             } else {
                 SelectionInput.scroll(wheel > 0);
             }
-        } else if (minecraft.hasControlDown()) {
+        } else {
+            // The slot is a tenth hotbar slot: scrolling past either end of the hotbar lands in it.
             int slot = inventory.getSelectedSlot();
             if ((right && slot == size - 1) || (!right && slot == 0)) {
                 event.setCanceled(true);

@@ -212,6 +212,11 @@ final class SelectionInput {
         }
     }
 
+    /** {@return whether the wheel does something for the tool now} Without a selection it goes back to the hotbar. */
+    static boolean wantsScroll() {
+        return Selection.box() != null;
+    }
+
     /** {@code up} is true for the wheel turning away from the player, which pushes things away. */
     static void scroll(boolean up) {
         LocalPlayer player = Minecraft.getInstance().player;

@@ -19,6 +19,16 @@ date. How to cut a release is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Changed
+
+- The build tool slot works like a tenth hotbar slot: scroll past either end of the hotbar to reach it, no Ctrl
+  needed, and scroll on to leave. Once you have a selection the wheel belongs to the tool and Ctrl + scroll leaves.
+- The tool options sit above the hotbar, beside the tool palette.
+
+### Fixed
+
+- Alt + scroll in the tool palette moves one tool up the column for scroll up, instead of jumping the other way.
+
 ## [1.2.0] - 2026-10-17
 
 ### Added

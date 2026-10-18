@@ -29,6 +29,8 @@ final class PaletteScreen extends Screen {
     private static final int CELL_GAP = 1;
     private static final int NAME_GAP = 4;
     private static final int PANEL_GAP = 8;
+    /** Room for the hotbar plus the health, hunger and armour rows above it. */
+    private static final int HUD_CLEARANCE = 52;
     private static final int OPTION_HEIGHT = 16;
     private static final int OPTION_GAP = 2;
     private static final int OPTION_MIN_WIDTH = 120;
@@ -76,26 +78,14 @@ final class PaletteScreen extends Screen {
             // Toggles and buttons need about 30 px beside the label.
             width = Math.max(width, font.width(row.getMessage()) + 30);
         }
-        // Right of the palette, past the room the tool names take; on the left only if the screen is too narrow.
-        int paletteX = BuildHud.slotX(this.width);
-        int left = paletteX + CELL + NAME_GAP + maxNameWidth() + PANEL_GAP;
-        if (left + width > this.width - 2) {
-            left = paletteX - PANEL_GAP - width;
-        }
-        int y = BuildHud.slotY(this.height) + CELL - rows.size() * (OPTION_HEIGHT + OPTION_GAP) + OPTION_GAP;
+        // Above the hotbar, clear of the health, hunger and armour rows, and right up against the palette.
+        int left = Math.max(2, BuildHud.slotX(this.width) - PANEL_GAP - width);
+        int y = this.height - HUD_CLEARANCE - rows.size() * (OPTION_HEIGHT + OPTION_GAP);
         for (AbstractWidget row : rows) {
             row.setRectangle(width, OPTION_HEIGHT, left, y);
             addRenderableWidget(row);
             y += OPTION_HEIGHT + OPTION_GAP;
         }
-    }
-
-    private int maxNameWidth() {
-        int width = 0;
-        for (BuildTool tool : BuildTool.values()) {
-            width = Math.max(width, font.width(tool.displayName()));
-        }
-        return width;
     }
 
     /** The option's name, with the mask block for Mask and Replace once one is set. */
@@ -161,7 +151,8 @@ final class PaletteScreen extends Screen {
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
         if (scrollY != 0) {
             BuildTool before = BuildClient.tool();
-            BuildClient.cycleTool(scrollY > 0 ? -1 : 1);
+            // Scrolling up moves up the column, one tool at a time.
+            BuildClient.cycleTool(scrollY > 0 ? 1 : -1);
             if (BuildClient.tool() != before) {
                 rebuildWidgets();
             }

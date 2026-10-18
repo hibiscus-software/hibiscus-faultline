@@ -41,6 +41,7 @@
   "hibiscusfaultline.build.option.creative_only": "Creative mode only",
   "hibiscusfaultline.build.hint.alt_scroll": "Alt + Scroll: Change tool",
   "hibiscusfaultline.build.hint.ctrl_scroll": "Ctrl + Scroll: Back to hotbar",
+  "hibiscusfaultline.build.hint.scroll_hotbar": "Scroll: Back to hotbar",
   "hibiscusfaultline.build.hint.first_point": "First Point",
   "hibiscusfaultline.build.hint.second_point": "Second Point",
   "hibiscusfaultline.build.hint.drag": "Drag to move",
